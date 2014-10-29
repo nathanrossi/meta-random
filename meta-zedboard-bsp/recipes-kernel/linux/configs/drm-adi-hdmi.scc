@@ -1,0 +1,4 @@
+define KFEATURE_DESCRIPTION "Enable ADI AXI HDMI DRM Driver"
+define KFEATURE_COMPATIBILITY board
+
+kconf hardware drm-adi-hdmi.cfg
