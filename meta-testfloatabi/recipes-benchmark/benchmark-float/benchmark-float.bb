@@ -24,6 +24,7 @@ do_install() {
 	install -m 755 ${S}/benchmark-float ${D}/${bindir}
 }
 
+FILES_${PN}-dev = ""
 FILES_${PN} += " \
 	${bindir}/benchmark-float \
 	${libdir}/libbenchmark-float.so \
