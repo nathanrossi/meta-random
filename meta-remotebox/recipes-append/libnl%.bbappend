@@ -1,0 +1,3 @@
+
+BBCLASSEXTEND += "native nativesdk"
+
