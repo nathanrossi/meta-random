@@ -18,7 +18,7 @@ RDEPENDS_${PN}-rtl += " \
 		${PN}-rtl-license ${PN}-rtl8192cu ${PN}-rtl8192ce ${PN}-rtl8192su \
 		"
 
-PACKAGES += " \
+PACKAGES =+ " \
 		${PN}-iwlwifi-7260-10 \
 		${PN}-iwlwifi-7260-12 \
 		${PN}-iwlwifi-7260-13 \
@@ -31,3 +31,8 @@ LICENSE_${PN}-iwlwifi-7260-13   = "Firmware-iwlwifi_firmware"
 FILES_${PN}-iwlwifi-7260-10 = "/lib/firmware/iwlwifi-7260-10.ucode"
 FILES_${PN}-iwlwifi-7260-12 = "/lib/firmware/iwlwifi-7260-12.ucode"
 FILES_${PN}-iwlwifi-7260-13 = "/lib/firmware/iwlwifi-7260-13.ucode"
+
+RDEPENDS_${PN}-iwlwifi-7260-10 = "${PN}-iwlwifi-license"
+RDEPENDS_${PN}-iwlwifi-7260-12 = "${PN}-iwlwifi-license"
+RDEPENDS_${PN}-iwlwifi-7260-13 = "${PN}-iwlwifi-license"
+
