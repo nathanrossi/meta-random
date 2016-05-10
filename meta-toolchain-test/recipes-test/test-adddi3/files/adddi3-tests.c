@@ -39,7 +39,7 @@ int testcase_adddi3_reg64_consts(void)
 {
 	uint64_t a = 4;
 
-	assert_u((a + 0x100000000UL), 0x100000004UL);
+	assert_u((a + 0x10000000UL), 0x10000004UL);
 	assert_u((a + 0x10000), 0x10004UL);
 	assert_u((a + ((uint16_t)10)), 14UL);
 
@@ -50,8 +50,8 @@ int testcase_adddi3_reg64_const64_gt48b(void)
 {
 	uint64_t a = 4;
 
-	assert_u((a + 0x1000010000000UL), 0x1000010000004UL);
-	assert_u((a + 0x1000000000000UL), 0x1000000000004UL);
+	assert_u((a + 0x1000010000000ULL), 0x1000010000004ULL);
+	assert_u((a + 0x1000000000000ULL), 0x1000000000004ULL);
 
 	return 0;
 }
@@ -61,7 +61,7 @@ int testcase_adddi3_reg64_const_ranges(void)
 	int64_t a = 9000;
 	uint64_t b = 9000;
 
-	assert_s((a + (-2147483648L)), -2147474648L);
+	assert_s((a + (-2147483647L)), -2147474647L);
 	assert_s((a + (-65535L)), -56535L);
 	assert_s((a + (-32768)), -23768);
 	assert_s((a + (-1)), 8999);
@@ -69,7 +69,9 @@ int testcase_adddi3_reg64_const_ranges(void)
 	assert_s((a + (1)), 9001);
 	assert_s((a + (32767)), 41767);
 	assert_s((a + (65535L)), 74535);
-	assert_s((a + (2147483647L)), 2147492647);
+	assert_s((a + (2147483647L)), 2147492647L);
+	assert_s((a + (2147483648LL)), 2147492648LL);
+	assert_s((a + (281474976710655LL)), 281474976719655LL);
 
 	assert_u((a + (0)), 9000);
 	assert_u((a + (1)), 9001);
