@@ -1,4 +1,0 @@
-define KFEATURE_DESCRIPTION "Enable BSP Stuff"
-define KFEATURE_COMPATIBILITY board
-
-kconf hardware zedboard-adi.cfg

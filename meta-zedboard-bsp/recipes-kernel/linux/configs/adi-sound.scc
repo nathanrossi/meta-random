@@ -1,4 +1,0 @@
-define KFEATURE_DESCRIPTION "Enable ADI Sound Drivers"
-define KFEATURE_COMPATIBILITY board
-
-kconf hardware adi-sound.cfg
