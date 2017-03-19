@@ -1,3 +1,0 @@
-
-part /boot --source bootimg-initramfs-pcbios --ondisk sda --label msdos --active --align 1024
-bootloader --timeout=0 --append="console=tty0"
