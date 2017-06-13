@@ -8,6 +8,7 @@ SRC_URI = " \
 		file://test-cpp-so.cpp \
 		file://test-mutex.c \
 		file://test-pthread.c \
+		file://test-gcc-atomic.c \
 		"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
@@ -17,6 +18,7 @@ do_compile() {
 	$CXX $TARGET_CXXFLAGS $TARGET_LDFLAGS -o ${B}/test-cpp-so ${WORKDIR}/test-cpp-so.cpp
 	$CC $TARGET_CFLAGS $TARGET_LDFLAGS -o ${B}/test-mutex ${WORKDIR}/test-mutex.c -lgcc_s -lpthread
 	$CC $TARGET_CFLAGS $TARGET_LDFLAGS -o ${B}/test-pthread ${WORKDIR}/test-pthread.c -lpthread
+	$CC $TARGET_CFLAGS $TARGET_LDFLAGS -o ${B}/test-gcc-atomic ${WORKDIR}/test-gcc-atomic.c
 }
 
 do_install() {
@@ -26,6 +28,7 @@ do_install() {
 	install -m 0755 ${B}/test-cpp-so ${D}${bindir}/test-cpp-so
 	install -m 0755 ${B}/test-mutex ${D}${bindir}/test-mutex
 	install -m 0755 ${B}/test-pthread ${D}${bindir}/test-pthread
+	install -m 0755 ${B}/test-gcc-atomic ${D}${bindir}/test-gcc-atomic
 }
 
 FILES_${PN} += " \
@@ -34,5 +37,8 @@ FILES_${PN} += " \
 		${bindir}/test-cpp-so \
 		${bindir}/test-mutex \
 		${bindir}/test-pthread \
+		${bindir}/test-gcc-atomic \
 		"
+
+QEMU_USER_TESTS = "test-helloworld test-adddi3 test-cpp-so test-mutex test-pthread test-gcc-atomic"
 
