@@ -9,7 +9,13 @@ python () {
 
 # setup the sysroot so that target binaries are populated, this allows for the
 # use of things like python, etc. during the test phase
-SYSROOT_DIRS_append_class-target = " ${SYSROOT_DIRS_NATIVE}"
+SYSROOT_DIRS_append_class-target = " \
+    ${bindir} \
+    ${sbindir} \
+    ${base_bindir} \
+    ${base_sbindir} \
+    ${libexecdir} \
+    "
 
 def qemu_user_find_interp_path(target, stagedir):
     interpstr = None
