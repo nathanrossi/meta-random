@@ -1,13 +1,15 @@
-
 inherit qemu
 
 # using qemu-native for qemu-* linux-user execution
 DEPENDS += "qemu-native"
-DEPENDS += "dejagnu-native expect-native"
+DEPENDS += "${@bb.utils.contains('BBFILE_COLLECTIONS', 'openembedded-layer', 'dejagnu-native expect-native', '', d)}"
 
 def qemu_user_run_args(d):
     qemu_binary = qemu_target_binary(d)
     qemu_binary = bb.utils.which(d.getVar("PATH"), qemu_binary)
+
+    if qemu_binary is None:
+        raise Exception("Missing binary")
 
     args = [qemu_binary]
     args += (d.getVar("QEMU_OPTIONS") or "").split()
@@ -44,8 +46,8 @@ def generate_qemu_linux_user_config(d):
 
 DEJAGNU_DIR ?= "${WORKDIR}/dejagnu"
 
-addtask do_generate_dejagnu before do_gcc_check after do_configure
 do_generate_dejagnu[dirs] += "${DEJAGNU_DIR}"
+addtask do_generate_dejagnu after do_configure
 python do_generate_dejagnu () {
     # write out target qemu board config
     with open(os.path.join(d.getVar("DEJAGNU_DIR"), "qemu-linux-user.exp"), "w") as f:
@@ -54,16 +56,5 @@ python do_generate_dejagnu () {
     # generate .exp for qemu user
     with open(os.path.join(d.getVar("DEJAGNU_DIR"), "site.exp"), "w") as f:
         f.write("lappend boards_dir %s" % d.getVar("DEJAGNU_DIR"))
-}
-
-addtask do_gcc_check after do_configure
-do_gcc_check[dirs] += "${B}"
-do_gcc_check[nostamp] = "1"
-do_gcc_check () {
-	export DEJAGNU="${DEJAGNU_DIR}/site.exp"
-	oe_runmake -k check-gcc V=1 RUNTESTFLAGS="--target_board=qemu-linux-user"
-
-	# manual single test running
-	#oe_runmake -k check-gcc RUNTESTFLAGS="execute.exp=pr68390.c --target_board=qemu-linux-user"
 }
 
