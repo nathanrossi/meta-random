@@ -1,8 +1,8 @@
 inherit qemu
+inherit dejagnu
 
 # using qemu-native for qemu-* linux-user execution
 DEPENDS += "qemu-native"
-DEPENDS += "${@bb.utils.contains('BBFILE_COLLECTIONS', 'openembedded-layer', 'dejagnu-native expect-native', '', d)}"
 
 def qemu_user_run_args(d):
     qemu_binary = qemu_target_binary(d)
@@ -43,8 +43,6 @@ def generate_qemu_linux_user_config(d):
     content.append('set_board_info gcc,timeout 60')
 
     return "\n".join(content)
-
-DEJAGNU_DIR ?= "${WORKDIR}/dejagnu"
 
 do_generate_dejagnu[dirs] += "${DEJAGNU_DIR}"
 addtask do_generate_dejagnu after do_configure
