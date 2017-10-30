@@ -1,13 +1,24 @@
 DEPENDS += "${@bb.utils.contains('BBFILE_COLLECTIONS', 'openembedded-layer', 'dejagnu-native expect-native', '', d)}"
 
 DEJAGNU_DIR ?= "${WORKDIR}/dejagnu"
+DEJAGNU_MAKEFLAGS ?= ""
 
-addtask do_check after do_configure do_compile
-do_check[dirs] += "${B}"
-do_check[nostamp] = "1"
-do_check () {
-	export DEJAGNU="${DEJAGNU_DIR}/site.exp"
-	oe_runmake -k check V=1
+python () {
+    for i in (d.getVarFlags("DEJAGNU_TARGETS") or []):
+        target_task = "do_check_{0}".format(i)
+        # create the task
+        bb.build.addtask(target_task, None, "do_configure do_compile", d)
+
+        # setup the task dirs/funcs/etc.
+        d.appendVarFlag(target_task, "dirs", " ${B}")
+        d.appendVarFlag(target_task, "postfuncs", " dejagnu_check_report")
+        d.setVarFlag(target_task, "nostamp", "1")
+
+        # setup the function/task content
+        d.setVarFlag(target_task, "func", 1)
+        d.setVar(target_task,
+            "export DEJAGNU=\"${DEJAGNU_DIR}/site.exp\"\n" +
+            "oe_runmake -k check V=1 RUNTESTFLAGS=\"${{DEJAGNU_MAKEFLAGS}} --target_board={0}\"\n".format(d.getVarFlag("DEJAGNU_TARGETS", i)))
 }
 
 def dejagnu_find_all_results(d):
@@ -40,8 +51,7 @@ def dejagnu_parse_results(sumfile):
                 unsupported += 1
     return passes, fails, upasses, xfails, untested, unsupported
 
-addtask do_check_report
-python do_check_report () {
+python dejagnu_check_report () {
     for i in dejagnu_find_all_results(d):
         passes, fails, upasses, xfails, untested, unsupported = dejagnu_parse_results(i)
         bb.warn("Test Run - {0}".format(os.path.basename(i)))

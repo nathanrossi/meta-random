@@ -1,6 +1,9 @@
 inherit qemu
 inherit dejagnu
 
+DEJAGNU_TARGETS[qemuuser] = "qemu-linux-user"
+do_check_qemuuser[prefuncs] += "dejagnu_qemu_user_generate"
+
 # using qemu-native for qemu-* linux-user execution
 DEPENDS += "qemu-native"
 
@@ -44,9 +47,8 @@ def generate_qemu_linux_user_config(d):
 
     return "\n".join(content)
 
-do_generate_dejagnu[dirs] += "${DEJAGNU_DIR}"
-addtask do_generate_dejagnu after do_configure
-python do_generate_dejagnu () {
+dejagnu_qemu_user_generate[dirs] += "${DEJAGNU_DIR}"
+python dejagnu_qemu_user_generate () {
     # write out target qemu board config
     with open(os.path.join(d.getVar("DEJAGNU_DIR"), "qemu-linux-user.exp"), "w") as f:
         f.write(generate_qemu_linux_user_config(d))
