@@ -49,12 +49,20 @@ void __attribute__ ((noinline)) modify(test* v, int val)
 	v->seekable = val;
 }
 
+void __attribute__ ((noinline)) verify_single(test* v, int val)
+{
+	int f = v->seekable;
+	if (f != val)
+		abort();
+}
+
 void __attribute__ ((noinline)) verify(test* v, int val)
 {
 	assert_u(v->created, 0);
 	assert_u(v->readable, 0);
 	assert_u(v->writable, 0);
 	assert_u(v->appending, 0);
+	verify_single(v, val);
 	assert_s(v->seekable, val);
 	assert_u(v->blksize, 0);
 	assert_u(v->closefd, 1);
