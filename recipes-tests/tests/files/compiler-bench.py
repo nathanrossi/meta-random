@@ -10,11 +10,11 @@ def target_compiler(output, files):
 	if any(i.endswith(".cpp") for i in files):
 		cc = ["g++"]
 		if "CXX" in os.environ:
-			cc = os.environ["CXX"].split(" ")
+			cc = [i for i in os.environ["CXX"].split(" ") if len(i) != 0]
 	else:
 		cc = ["gcc"]
 		if "CC" in os.environ:
-			cc = os.environ["CC"].split(" ")
+			cc = [i for i in os.environ["CC"].split(" ") if len(i) != 0]
 	args = []
 	args += cc
 	args += ["-o", output]
