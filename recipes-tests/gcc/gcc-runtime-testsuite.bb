@@ -9,19 +9,10 @@ CPPFLAGS_prepend = "${TOOLCHAIN_OPTIONS} "
 LDFLAGS_prepend = "${TOOLCHAIN_OPTIONS} "
 
 def dejagnu_libstdcxx_site_exp(testsuite, d):
-    content = []
-    content.append("set objdir \"{0}\"".format(os.path.join(d.expand("${B}"), testsuite, "testsuite")))
-    content.append("set srcdir \"{0}\"".format(os.path.join(d.expand("${S}"), testsuite, "testsuite")))
+    content = dejagnu_gnu_site_exp(testsuite, d)
     # TODO: this directory is different on non-microblaze targets, sort that out?
     content.append("set baseline_dir \"{0}\"".format(os.path.join(d.expand("${S}"), testsuite, "config", "abi", "post/")))
     content.append("set baseline_subdir_switch \"--print-multi-directory\"")
-
-    content.append("set host_triplet {0}".format(d.getVar("BUILD_SYS")))
-    content.append("set host_alias {0}".format(d.getVar("BUILD_SYS")))
-    content.append("set build_triplet {0}".format(d.getVar("BUILD_SYS")))
-    content.append("set build_alias {0}".format(d.getVar("BUILD_SYS")))
-    content.append("set target_triplet {0}".format(d.getVar("TARGET_SYS")))
-    content.append("set target_alias {0}".format(d.getVar("TARGET_SYS")))
 
     content.append("set libiconv \"\"")
 
@@ -44,8 +35,8 @@ def dejagnu_libgomp_site_exp(testsuite, d):
     return content
 
 python do_check() {
-    #dejagnu_gcc_run_testsuite("libstdc++-v3", ["libstdc++"], dejagnu_libstdcxx_site_exp, d)
-    #dejagnu_gcc_run_testsuite("libatomic", ["libatomic"], dejagnu_libatomic_site_exp, d)
-    dejagnu_gcc_run_testsuite("libgomp", ["libgomp"], dejagnu_libgomp_site_exp, d)
+    dejagnu_run_testsuite("libstdc++-v3", ["libstdc++"], dejagnu_libstdcxx_site_exp, d)
+    dejagnu_run_testsuite("libatomic", ["libatomic"], dejagnu_libatomic_site_exp, d)
+    dejagnu_run_testsuite("libgomp", ["libgomp"], dejagnu_libgomp_site_exp, d)
 }
 

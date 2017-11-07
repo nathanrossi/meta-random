@@ -3,17 +3,9 @@ require gcc-testsuite.inc
 # check-c check-c++ check-lto
 # check-g++
 
-def dejagnu_gcc_generate_site_exp(testsuite, d):
-    content = []
+def dejagnu_gcc_site_exp(testsuite, d):
+    content = dejagnu_gnu_site_exp(testsuite, d)
     content.append("set rootme \"{0}\"".format(os.path.join(d.expand("${B}"), testsuite, "testsuite")))
-    content.append("set srcdir \"{0}\"".format(os.path.join(d.expand("${S}"), testsuite, "testsuite")))
-
-    content.append("set host_triplet {0}".format(d.getVar("BUILD_SYS")))
-    content.append("set host_alias {0}".format(d.getVar("BUILD_SYS")))
-    content.append("set build_triplet {0}".format(d.getVar("BUILD_SYS")))
-    content.append("set build_alias {0}".format(d.getVar("BUILD_SYS")))
-    content.append("set target_triplet {0}".format(d.getVar("TARGET_SYS")))
-    content.append("set target_alias {0}".format(d.getVar("TARGET_SYS")))
 
     content.append("set libiconv \"\"")
 
@@ -34,6 +26,6 @@ def dejagnu_gcc_generate_site_exp(testsuite, d):
     return content
 
 python do_check() {
-    dejagnu_gcc_run_testsuite("gcc", ["gcc", "g++"], dejagnu_gcc_generate_site_exp, d)
+    dejagnu_run_testsuite("gcc", ["gcc", "g++"], dejagnu_gcc_site_exp, d)
 }
 
