@@ -26,6 +26,7 @@ def dejagnu_libatomic_site_exp(testsuite, d):
 def dejagnu_libgomp_site_exp(testsuite, d):
     content = dejagnu_libstdcxx_site_exp(testsuite, d)
     content.append("set GCC_UNDER_TEST \"{0}\"".format(d.getVar("CC")))
+    content.append("set GXX_UNDER_TEST \"{0}\"".format(d.getVar("CXX")))
     content.append("set cuda_driver_include \"\"")
     content.append("set cuda_driver_lib \"\"")
     content.append("set hsa_runtime_lib \"\"")

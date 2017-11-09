@@ -5,6 +5,7 @@ RM_WORK_EXCLUDE += "${PN}"
 
 DEJAGNU_DIR ?= "${WORKDIR}/dejagnu"
 export DEJAGNU = "${DEJAGNU_DIR}/site.exp"
+DEJAGNU_TARGET ??= "qemu-linux-user"
 
 def dejagnu_find_all_results(basepath, d):
     builddir = basepath or d.getVar("B")
@@ -105,12 +106,14 @@ def dejagnu_run_testsuite(testsuite, tools, siteexp, d, board = True, cwd = None
         srcdir = os.path.join(d.expand("${S}"), testsuite, "testsuite")
         rundir = os.path.abspath(workdir if cwd is None else os.path.join(workdir, cwd))
 
+        targetboard = d.getVar("DEJAGNU_TARGET") or None
+
         # run dejagnu in target directory
         r = subprocess.run(
             ["runtest"] + \
                 ["--tool", i] + \
                 ["--srcdir", srcdir] + \
-                (["--target_board=qemu-linux-user"] if board else []),
+                (["--target_board={0}".format(targetboard)] if targetboard and board else []),
             cwd = rundir,
             env = dejagnu_cross_env(d))
         #if r.returncode != 0:
@@ -120,14 +123,18 @@ def dejagnu_run_testsuite(testsuite, tools, siteexp, d, board = True, cwd = None
         # display report
         dejagnu_write_report(builddir, d)
 
-def dejagnu_run_make_testsuite(testsuite, target, d, args = None):
+def dejagnu_run_make_testsuite(testsuite, target, d, args = None, board = True):
     import subprocess
     builddir = os.path.join(d.expand("${B}"), testsuite)
+
+    targetboard = d.getVar("DEJAGNU_TARGET") or None
+    runtestflags = (["RUNTESTFLAGS=\"--target_board={0}\"".format(targetboard)] if targetboard and board else []),
 
     # run dejagnu in target directory
     r = subprocess.run(
         [i for i in d.expand("${MAKE} ${EXTRA_OEMAKE}").split(" ") if len(i) != 0] + \
             [target] + \
+            runtestflags + \
             ([] if args is None else args),
         cwd = d.expand("${B}"),
         env = dejagnu_cross_env(d))

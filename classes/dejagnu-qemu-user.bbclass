@@ -1,8 +1,7 @@
 inherit qemu
 inherit dejagnu
 
-DEJAGNU_TARGETS[qemuuser] = "qemu-linux-user"
-do_check_qemuuser[prefuncs] += "dejagnu_qemu_user_generate"
+do_check[prefuncs] += "dejagnu_qemu_user_generate"
 
 # using qemu-native for qemu-* linux-user execution
 DEPENDS += "qemu-native"
