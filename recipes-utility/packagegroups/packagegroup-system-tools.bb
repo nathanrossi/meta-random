@@ -11,5 +11,6 @@ RDEPENDS_${PN} = " \
 		pciutils \
 		util-linux e2fsprogs \
 		strace \
+		minicom \
 		"
 
