@@ -2,28 +2,40 @@ DESCRIPTION = "Toolchain test programs"
 LICENSE = "MIT"
 
 FILESEXTRAPATHS_append := "${THISDIR}/files:"
-SRC_URI = " \
-		file://test-helloworld.c \
-		file://test-adddi3.c \
-		file://test-bitfields.c \
-		file://test-cpp-so.cpp \
-		file://test-mutex.c \
-		file://test-pthread.c \
-		file://test-gcc-atomic.c \
-		"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
+SRC_URI = "${@find_sources(d)}"
 
-export CC9 = "${@d.getVar('CC').replace('mcpu=v10.0', 'mcpu=v9.6')}"
+TARGET_LDFLAGS += "-lpthread -lgcc_s"
 
-do_compile() {
-	$CC $TARGET_CFLAGS $TARGET_LDFLAGS -o ${B}/test-helloworld ${WORKDIR}/test-helloworld.c
-	$CC $TARGET_CFLAGS $TARGET_LDFLAGS -o ${B}/test-adddi3 ${WORKDIR}/test-adddi3.c
-	$CC $TARGET_CFLAGS $TARGET_LDFLAGS -o ${B}/test-bitfields ${WORKDIR}/test-bitfields.c
-	$CC9 $TARGET_CFLAGS $TARGET_LDFLAGS -o ${B}/test-bitfields-v96 ${WORKDIR}/test-bitfields.c
-	$CXX $TARGET_CXXFLAGS $TARGET_LDFLAGS -o ${B}/test-cpp-so ${WORKDIR}/test-cpp-so.cpp
-	$CC $TARGET_CFLAGS $TARGET_LDFLAGS -o ${B}/test-mutex ${WORKDIR}/test-mutex.c -lgcc_s -lpthread
-	$CC $TARGET_CFLAGS $TARGET_LDFLAGS -o ${B}/test-pthread ${WORKDIR}/test-pthread.c -lpthread
-	$CC $TARGET_CFLAGS $TARGET_LDFLAGS -o ${B}/test-gcc-atomic ${WORKDIR}/test-gcc-atomic.c
+def find_sources(d):
+    srcs = []
+    for path in d.getVar("FILESPATH").split(":"):
+        if not os.path.isdir(path):
+            continue
+        for i in os.listdir(path):
+            if os.path.splitext(i)[1] in [".c", ".cpp"]:
+                srcs.append(i)
+    return " ".join("file://{0}".format(i) for i in srcs)
+
+def compiler(d, args, cxx = False):
+    cmd = d.getVar("CC" if not cxx else "CXX").split(" ")
+    cmd += d.getVar("TARGET_CFLAGS" if not cxx else "TARGET_CXXFLAGS").split(" ")
+    cmd += args
+    cmd += d.getVar("TARGET_LDFLAGS").split(" ")
+    return [i for i in cmd if i]
+
+python do_compile() {
+    import subprocess
+    for i in os.listdir(d.getVar("WORKDIR")):
+        base, ext = os.path.splitext(i)
+        if ext in [".c", ".cpp"]:
+            # output
+            cmd = ["-o", os.path.join(d.getVar("B"), base)]
+            cmd += [os.path.join(d.getVar("WORKDIR"), i)]
+
+            r = subprocess.run(compiler(d, cmd, cxx = (ext == ".cpp")), cwd = d.getVar("B"))
+            if r.returncode != 0:
+                bb.fatal("Failed to compile '{0}'".format(base))
 }
 
 do_install() {
@@ -34,6 +46,4 @@ do_install() {
 }
 
 FILES_${PN} += "${bindir}"
-
-QEMU_USER_TESTS = "test-helloworld test-adddi3 test-cpp-so test-mutex test-pthread test-gcc-atomic"
 
