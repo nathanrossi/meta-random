@@ -32,16 +32,16 @@ do_install[noexec] = "1"
 deltask do_build
 inherit nopackages
 
+BUILD_TEST_HOST ??= ""
+BUILD_TEST_HOST_USER ??= "root"
+BUILD_TEST_HOST_PORT ??= "22"
+
 python dummy_test_wrapper_content_ssh() {
     import sys
     import os
     import subprocess
 
-    args = ["ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no", "root@10.0.10.152", "sh", "-c"]
-    #args = ["ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no", "-p", "2222", "root@localhost", "sh", "-c"]
-
-    # setup mount
-    #r = subprocess.run(args + ["\"mkdir -p /mnt/storagedisk/nathan/build; mount 10.0.10.1:/mnt/storagedisk/nathan/build /mnt/storagedisk/nathan/build -o noac\""])
+    args = ["ssh", "-p", port, "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no", "{0}@{1}".format(user, host), "sh", "-c"]
 
     command = ""
     #command += "export TIMEOUTFACTOR=10000; "
@@ -53,13 +53,25 @@ python dummy_test_wrapper_content_ssh() {
     sys.exit(r.returncode)
 }
 
-do_generate_test_wrapper[dirs] += "${WORKDIR}"
-do_generate_test_wrapper[vardeps] += "dummy_test_wrapper_content_ssh"
-addtask do_generate_test_wrapper after do_configure
-python do_generate_test_wrapper() {
+python setup_remote_mount_ssh() {
+    import subprocess
+    host = d.getVar("BUILD_TEST_HOST")
+    user = d.getVar("BUILD_TEST_HOST_USER")
+    port = d.getVar("BUILD_TEST_HOST_PORT")
+    args = ["ssh", "-p", port, "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no", "{0}@{1}".format(user, host), "sh", "-c"]
+    args += ["\"mkdir -p /mnt/storagedisk/nathan/build; mount 10.0.10.1:/mnt/storagedisk/nathan/build /mnt/storagedisk/nathan/build -o noac\""]
+    r = subprocess.run(args)
+}
+
+generate_test_wrapper[dirs] += "${WORKDIR}"
+generate_test_wrapper[vardeps] += "dummy_test_wrapper_content_ssh"
+python generate_test_wrapper() {
     testwrapper = os.path.join(d.getVar("WORKDIR"), "check-test-wrapper")
     with open(testwrapper, "w") as f:
         f.write("%s\n" % "#!/usr/bin/env python3")
+        f.write("host = \"{0}\"\n".format(d.getVar("BUILD_TEST_HOST")))
+        f.write("user = \"{0}\"\n".format(d.getVar("BUILD_TEST_HOST_USER")))
+        f.write("port = \"{0}\"\n".format(d.getVar("BUILD_TEST_HOST_PORT")))
         for i in d.getVar("dummy_test_wrapper_content_ssh").splitlines():
             f.write("%s\n" % i[4:])
     os.chmod(testwrapper, 0o755)
@@ -67,8 +79,9 @@ python do_generate_test_wrapper() {
 
 do_check[dirs] += "${B}"
 do_check[nostamp] = "1"
-addtask do_check after do_compile do_generate_test_wrapper
+do_check[prefuncs] += "setup_remote_mount_ssh generate_test_wrapper"
+addtask do_check after do_compile
 do_check () {
-    oe_runmake test-wrapper='${WORKDIR}/check-test-wrapper' PARALLELMFLAGS="-j2" check
+	oe_runmake test-wrapper='${WORKDIR}/check-test-wrapper' PARALLELMFLAGS="-j2" check
 }
 
