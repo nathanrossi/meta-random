@@ -90,7 +90,7 @@ def dejagnu_gnu_site_exp(testsuite, d):
 
     return content
 
-def dejagnu_run_testsuite(testsuite, tools, siteexp, d, board = True, cwd = None):
+def dejagnu_run_testsuite(testsuite, tools, siteexp, d, board = True, cwd = None, subtests = None):
     import subprocess
     for i in tools:
         builddir = os.path.join(d.expand("${B}"), testsuite)
@@ -108,14 +108,17 @@ def dejagnu_run_testsuite(testsuite, tools, siteexp, d, board = True, cwd = None
 
         targetboard = d.getVar("DEJAGNU_TARGET") or None
 
+        cmd = ["runtest"]
+        cmd += ["--tool", i]
+        cmd += ["--srcdir", srcdir]
+        cmd += (["--target_board={0}".format(targetboard)] if targetboard and board else [])
+        #cmd += ["--all", "-v", "-v"]
+        if subtests is not None:
+            for s in subtests:
+                cmd.append(s)
+
         # run dejagnu in target directory
-        r = subprocess.run(
-            ["runtest"] + \
-                ["--tool", i] + \
-                ["--srcdir", srcdir] + \
-                (["--target_board={0}".format(targetboard)] if targetboard and board else []),
-            cwd = rundir,
-            env = dejagnu_cross_env(d))
+        r = subprocess.run(cmd, cwd = rundir, env = dejagnu_cross_env(d))
         #if r.returncode != 0:
             #bb.fatal("dejagnu runtest failed for '{0}'".format(i))
         bb.note("dejagnu runtest completed for '{0}'".format(i))
@@ -128,16 +131,14 @@ def dejagnu_run_make_testsuite(testsuite, target, d, args = None, board = True):
     builddir = os.path.join(d.expand("${B}"), testsuite)
 
     targetboard = d.getVar("DEJAGNU_TARGET") or None
-    runtestflags = (["RUNTESTFLAGS=\"--target_board={0}\"".format(targetboard)] if targetboard and board else []),
+    runtestflags = (["RUNTESTFLAGS=\"--target_board={0}\"".format(targetboard)] if targetboard and board else [])
+
+    cmd = [i for i in d.expand("${MAKE} ${EXTRA_OEMAKE}").split(" ") if len(i) != 0]
+    cmd += [target] + runtestflags
+    cmd += ([] if args is None else args)
 
     # run dejagnu in target directory
-    r = subprocess.run(
-        [i for i in d.expand("${MAKE} ${EXTRA_OEMAKE}").split(" ") if len(i) != 0] + \
-            [target] + \
-            runtestflags + \
-            ([] if args is None else args),
-        cwd = d.expand("${B}"),
-        env = dejagnu_cross_env(d))
+    r = subprocess.run(cmd, cwd = d.expand("${B}"), env = dejagnu_cross_env(d))
     #if r.returncode != 0:
         #bb.fatal("dejagnu runtest failed for '{0}'".format(i))
     bb.note("dejagnu runtest completed for '{0}'".format(testsuite))

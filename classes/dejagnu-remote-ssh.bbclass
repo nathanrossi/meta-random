@@ -15,8 +15,8 @@ def generate_remote_ssh_linux_config(d):
 
     content.append("set_board_info hostname {0}".format(d.getVar("BUILD_TEST_HOST")))
     content.append('set_board_info username root')
-    content.append('set_board_info rsh_prog \"/usr/bin/ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no\"')
-    content.append('set_board_info rcp_prog \"/usr/bin/scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no\"')
+    content.append('set_board_info rsh_prog \"/usr/bin/ssh -p 22 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no\"')
+    content.append('set_board_info rcp_prog \"/usr/bin/scp -P 22 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no\"')
 
     return "\n".join(content)
 
