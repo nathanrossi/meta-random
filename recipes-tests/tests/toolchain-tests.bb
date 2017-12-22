@@ -29,13 +29,15 @@ python do_compile() {
     for i in os.listdir(d.getVar("WORKDIR")):
         base, ext = os.path.splitext(i)
         if ext in [".c", ".cpp"]:
-            # output
-            cmd = ["-o", os.path.join(d.getVar("B"), base)]
-            cmd += [os.path.join(d.getVar("WORKDIR"), i)]
+            for opt in ["-O2", "-Os", "-O1", "-O0"]:
+                # output
+                cmd = ["-o", os.path.join(d.getVar("B"), base + opt.lower())]
+                cmd += [os.path.join(d.getVar("WORKDIR"), i)]
+                cmd += [opt]
 
-            r = subprocess.run(compiler(d, cmd, cxx = (ext == ".cpp")), cwd = d.getVar("B"))
-            if r.returncode != 0:
-                bb.fatal("Failed to compile '{0}'".format(base))
+                r = subprocess.run(compiler(d, cmd, cxx = (ext == ".cpp")), cwd = d.getVar("B"))
+                if r.returncode != 0:
+                    bb.fatal("Failed to compile '{0}'".format(base))
 }
 
 do_install() {
