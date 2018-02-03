@@ -7,6 +7,8 @@ inherit nopackages
 inherit native
 
 # Selection of desired dev-tools
+DEVTOOLS ?= ""
+DEPENDS = "${DEVTOOLS}"
 DEPENDS += "u-boot-mkimage-native"
 
 COMMONBINDIR = "${TMPDIR}/devtools"
