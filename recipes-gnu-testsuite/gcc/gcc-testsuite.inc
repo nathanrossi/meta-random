@@ -1,4 +1,4 @@
-PV = "7.2"
+PV = "7.3"
 
 require recipes-devtools/gcc/gcc-${PV}.inc
 require recipes-devtools/gcc/gcc-configure-common.inc
