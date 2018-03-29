@@ -1,0 +1,19 @@
+[Unit]
+Description=WPA supplicant interface adder
+Requires=sys-subsystem-net-devices-%i.device
+After=sys-subsystem-net-devices-%i.device
+After=wpa_supplicant.service
+Before=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/gdbus call --system \
+		--dest fi.w1.wpa_supplicant1 \
+		--object-path /fi/w1/wpa_supplicant1 \
+		--method fi.w1.wpa_supplicant1.CreateInterface \
+		"{'Ifname': <'%I'>, 'ConfigFile': <'/etc/wpa_supplicant/wpa_supplicant-common.conf'>}"
+
+[Install]
+Alias=multi-user.target.wants/wpa_supplicant-interface@%i.service
+

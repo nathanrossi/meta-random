@@ -1,0 +1,14 @@
+[Match]
+Name=eth0
+
+[Network]
+Address=10.0.10.1/24
+IPForward=yes
+DHCPServer=yes
+
+[DHCPServer]
+PoolOffset=100
+PoolSize=100
+DefaultLeaseTime=1h
+EmitDNS=yes
+
