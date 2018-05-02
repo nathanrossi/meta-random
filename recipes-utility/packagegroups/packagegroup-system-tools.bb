@@ -3,14 +3,19 @@ SUMMARY = "System tools for debugging, disks, network, etc."
 inherit packagegroup
 
 RDEPENDS_${PN} = " \
-		file \
 		iperf3 \
-		usbutils \
-		i2c-tools \
+		iputils \
+		iproute2 \
+		tcpdump \
 		ethtool \
+		\
+		usbutils \
 		pciutils \
-		util-linux e2fsprogs \
-		strace \
+		i2c-tools \
 		minicom \
+		\
+		strace \
+		file \
+		util-linux e2fsprogs \
 		"
 
