@@ -31,6 +31,23 @@ SRC_URI_append = " \
 
 kernel_do_configure_prepend() {
     cp ${S}/arch/${ARCH}/configs/${KBUILD_DEFCONFIG} ${B}/.config
+
+    # iptables/etc modules
+    echo "CONFIG_IP_NF_IPTABLES=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_MATCH_ECN=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_MATCH_TTL=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_FILTER=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_TARGET_REJECT=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_TARGET_MASQUERADE=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_TARGET_REDIRECT=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_TARGET_NETMAP=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_MANGLE=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_TARGET_ECN=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_TARGET_CLUSTERIP=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_RAW=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_ARPTABLES=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_ARPFILTER=m" >> ${B}/.config
+    echo "CONFIG_IP_NF_ARP_MANGLE=m" >> ${B}/.config
 }
 
 COMPATIBLE_MACHINE_raspberrypi3-64 = ".*"
