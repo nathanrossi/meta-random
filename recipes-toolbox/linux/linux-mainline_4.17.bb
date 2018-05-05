@@ -50,7 +50,6 @@ kernel_do_configure_prepend() {
     echo "CONFIG_IP_NF_ARP_MANGLE=m" >> ${B}/.config
 }
 
-COMPATIBLE_MACHINE_raspberrypi3-64 = ".*"
-KBUILD_DEFCONFIG_raspberrypi3-64 = "defconfig"
-KERNEL_DEVICETREE_raspberrypi3-64 = "broadcom/bcm2837-rpi-3-b.dtb broadcom/bcm2837-rpi-3-b-plus.dtb"
+KBUILD_DEFCONFIG_aarch64 = "defconfig"
+COMPATIBLE_MACHINE_raspberrypi3-b-plus = ".*"
 
