@@ -38,4 +38,6 @@ kernel_do_configure_prepend() {
 
 KBUILD_DEFCONFIG_aarch64 = "defconfig"
 COMPATIBLE_MACHINE_raspberrypi3-b-plus = ".*"
+KBUILD_DEFCONFIG_raspberrypi0-wifi ?= "bcm2835_defconfig"
+COMPATIBLE_MACHINE_raspberrypi0-wifi = ".*"
 
