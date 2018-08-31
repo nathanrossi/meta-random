@@ -21,6 +21,12 @@ RDEPENDS_${PN} = " \
 		packagegroup-system-tools \
 		networkd-config \
 		\
+		python3-core \
+		python3-pip \
+		python3-spidev \
+		\
+		flashrom \
+		\
 		${FIRMWARE_DEFAULT} \
 		"
 
