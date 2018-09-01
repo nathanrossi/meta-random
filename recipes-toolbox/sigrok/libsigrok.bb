@@ -16,6 +16,7 @@ DEPENDS += "libusb libftdi"
 
 inherit autotools pkgconfig
 
+RDEPENDS_${PN} += "sigrok-firmware-fx2lafw"
 FILES_${PN} += " \
     ${datadir}/icons/hicolor/* \
     ${datadir}/mime/packages/* \
