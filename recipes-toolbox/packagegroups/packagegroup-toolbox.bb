@@ -26,6 +26,7 @@ RDEPENDS_${PN} = " \
 		python3-spidev \
 		\
 		flashrom \
+		sigrok-cli \
 		\
 		${FIRMWARE_DEFAULT} \
 		"
