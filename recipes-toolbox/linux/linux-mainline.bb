@@ -12,7 +12,7 @@ S = "${WORKDIR}/git"
 
 BRANCH = "master"
 SRCREV = "${AUTOREV}"
-PV = "4.18-pre"
+PV = "4.19-rc1"
 SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;protocol=https;branch=${BRANCH}"
 
 kernel_do_configure_prepend() {
