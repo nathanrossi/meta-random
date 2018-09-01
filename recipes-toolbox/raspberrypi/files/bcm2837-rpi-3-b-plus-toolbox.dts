@@ -1,10 +1,22 @@
 #include "bcm2837-rpi-3-b-plus.dts"
 
+&gpio {
+	spi1_gpio16: spi1_gpio16 {
+		brcm,pins = <16 17 18>;
+		/* the bcm aux spi driver is not setup to handle CS pins, setup as gpios instead */
+		brcm,function = <BCM2835_FSEL_GPIO_OUT>;
+	};
+	spi1_gpio_data: spi1_gpio_data {
+		brcm,pins = <19 20 21>;
+		brcm,function = <BCM2835_FSEL_ALT4>;
+	};
+};
+
 &spi1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&spi1_gpio16>;
+	pinctrl-0 = <&spi1_gpio16 &spi1_gpio_data>;
 	cs-gpios = <&gpio 18 1>, <&gpio 17 1>, <&gpio 16 1>;
 	status = "okay";
 
