@@ -13,3 +13,6 @@ PoolSize=100
 DefaultLeaseTime=1h
 EmitDNS=yes
 
+[DHCP]
+ClientIdentifier=mac
+
