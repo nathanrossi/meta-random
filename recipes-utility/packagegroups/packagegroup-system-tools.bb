@@ -4,6 +4,7 @@ inherit packagegroup
 
 RDEPENDS_${PN} = " \
 		iperf3 \
+		iperf2 \
 		iputils \
 		iproute2 \
 		tcpdump \
