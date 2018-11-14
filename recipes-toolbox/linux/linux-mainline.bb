@@ -12,11 +12,15 @@ S = "${WORKDIR}/git"
 
 BRANCH = "master"
 SRCREV = "${AUTOREV}"
-PV = "4.19-rc1"
+PV = "4.20-rc1"
 SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;protocol=https;branch=${BRANCH}"
 
 kernel_do_configure_prepend() {
     cp ${S}/arch/${ARCH}/configs/${KBUILD_DEFCONFIG} ${B}/.config
+    for i in ${WORKDIR}/*.cfg; do
+        echo "appending fragment $i to .config"
+        cat $i >> ${B}/.config
+    done
 
     # iptables/etc modules
     echo "CONFIG_IP_NF_IPTABLES=m" >> ${B}/.config
@@ -40,4 +44,14 @@ KBUILD_DEFCONFIG_aarch64 = "defconfig"
 COMPATIBLE_MACHINE_raspberrypi3-b-plus = ".*"
 KBUILD_DEFCONFIG_raspberrypi0-wifi ?= "bcm2835_defconfig"
 COMPATIBLE_MACHINE_raspberrypi0-wifi = ".*"
+
+kernel_do_configure_prepend_qemuarm () {
+    echo "CONFIG_DEVTMPFS=y" > ${WORKDIR}/qemuarm.cfg
+    echo "CONFIG_THUMB=y" >> ${WORKDIR}/qemuarm.cfg
+    echo "CONFIG_PCI=y" >> ${WORKDIR}/qemuarm.cfg
+    echo "CONFIG_PCI_VERSATILE=y" >> ${WORKDIR}/qemuarm.cfg
+}
+KBUILD_DEFCONFIG_qemuarm = "versatile_defconfig"
+COMPATIBLE_MACHINE_qemuarm = ".*"
+KERNEL_DEVICETREE_qemuarm = "versatile-pb.dtb"
 
