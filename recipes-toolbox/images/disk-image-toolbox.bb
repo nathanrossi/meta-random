@@ -9,7 +9,7 @@ LICENSE = "MIT"
 inherit core-image
 
 python () {
-    if "rpi" in d.getVar("MACHINEOVERRIDES").split(":"):
+    if "rpi" in d.getVar("OVERRIDES").split(":"):
         # for rpi, pack the initramfs into the boot partition
         d.appendVarFlag("do_image_wic", "depends", " bcm2835-bootfiles:do_deploy")
         d.appendVarFlag('do_rootfs', 'depends', ' core-image-toolbox:do_image_complete')
@@ -18,6 +18,10 @@ python () {
         d.appendVar("IMAGE_BOOT_FILES", " bcm2835-bootfiles/*.bin")
         d.appendVar("IMAGE_BOOT_FILES", " bcm2835-bootfiles/*.dat")
         d.appendVar("IMAGE_BOOT_FILES", " bcm2835-bootfiles/*.elf")
+
+    if "x86-64" in d.getVar("OVERRIDES").split(":"):
+        # put kernel stubed efi image into a directory that works for removable disks
+        d.appendVar("IMAGE_BOOT_FILES", " ${KERNEL_IMAGETYPE}-initramfs-${MACHINE}.bin;EFI/boot/bootx64.efi")
 }
 
 IMAGE_FSTYPES = "wic"
