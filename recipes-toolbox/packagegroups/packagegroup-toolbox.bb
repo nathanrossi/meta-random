@@ -13,6 +13,8 @@ FIRMWARE_DEFAULT = " \
 		"
 
 RDEPENDS_${PN} = " \
+		systemd-analyze \
+		\
 		packagegroup-base-ext2 \
 		packagegroup-base-vfat \
 		packagegroup-base-usbhost \
