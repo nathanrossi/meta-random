@@ -5,6 +5,9 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=bbea815ee2795b2f4230826c0c6b8814"
 
 inherit kernel
 
+# for ORC
+DEPENDS += "elfutils-native"
+
 DEFAULT_PREFERENCE = "-1"
 COMPATIBLE_MACHINE = "^$"
 
@@ -55,3 +58,8 @@ KBUILD_DEFCONFIG_qemuarm = "versatile_defconfig"
 COMPATIBLE_MACHINE_qemuarm = ".*"
 KERNEL_DEVICETREE_qemuarm = "versatile-pb.dtb"
 
+kernel_do_configure_prepend_toolbox-x64 () {
+    echo "CONFIG_EFI_STUB=y" > ${WORKDIR}/${MACHINE}.cfg
+}
+KBUILD_DEFCONFIG_toolbox-x64 = "x86_64_defconfig"
+COMPATIBLE_MACHINE_toolbox-x64 = ".*"
