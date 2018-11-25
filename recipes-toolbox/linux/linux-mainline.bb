@@ -63,6 +63,8 @@ KERNEL_DEVICETREE_qemuarm = "versatile-pb.dtb"
 
 kernel_do_configure_prepend_toolbox-x64 () {
     echo "CONFIG_EFI_STUB=y" > ${WORKDIR}/${MACHINE}.cfg
+    # allow cpu to be trusted to provide entropy
+    echo "CONFIG_RANDOM_TRUST_CPU=y" >> ${WORKDIR}/${MACHINE}.cfg
 }
 KBUILD_DEFCONFIG_toolbox-x64 = "x86_64_defconfig"
 COMPATIBLE_MACHINE_toolbox-x64 = ".*"
