@@ -13,6 +13,8 @@ FIRMWARE_DEFAULT = " \
 		"
 
 RDEPENDS_${PN} = " \
+		coreutils findutils \
+		tar xz unzip \
 		systemd-analyze \
 		\
 		packagegroup-base-ext2 \
