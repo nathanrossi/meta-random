@@ -13,7 +13,7 @@ def find_sources(d):
         if not os.path.isdir(path):
             continue
         for i in os.listdir(path):
-            if os.path.splitext(i)[1] in [".c", ".cpp"]:
+            if os.path.splitext(i)[1] in [".c", ".cpp", ".h"]:
                 srcs.append(i)
     return " ".join("file://{0}".format(i) for i in srcs)
 
