@@ -17,7 +17,7 @@ DEPENDS += "zlib"
 
 # run time test dependencies
 RDEPENDS_${PN} += " \
-		python3-core python3-io python3-datetime python3-subprocess python3-shell \
+		python3-core python3-io python3-datetime python3-shell \
 		tar xz \
 		make \
 		binutils binutils-symlinks \
