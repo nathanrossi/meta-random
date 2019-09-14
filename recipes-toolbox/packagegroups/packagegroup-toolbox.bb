@@ -1,5 +1,7 @@
 SUMMARY = "Toolbox base system packagegroup"
 
+PACKAGE_ARCH = "${MACHINE_ARCH}"
+
 inherit packagegroup
 
 # firmware
@@ -15,7 +17,7 @@ FIRMWARE_DEFAULT = " \
 RDEPENDS_${PN} = " \
 		coreutils findutils \
 		tar xz unzip \
-		systemd-analyze \
+		${@bb.utils.contains('DISTRO_FEATURES', 'systemd', 'systemd-analyze', '', d)} \
 		\
 		packagegroup-base-ext2 \
 		packagegroup-base-vfat \
