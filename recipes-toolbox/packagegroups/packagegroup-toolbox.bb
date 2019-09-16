@@ -19,10 +19,7 @@ RDEPENDS_${PN} = " \
 		tar xz unzip \
 		${@bb.utils.contains('DISTRO_FEATURES', 'systemd', 'systemd-analyze', '', d)} \
 		\
-		packagegroup-base-ext2 \
-		packagegroup-base-vfat \
-		packagegroup-base-usbhost \
-		packagegroup-base-wifi \
+		packagegroup-base \
 		\
 		packagegroup-system-tools \
 		networkd-config \
