@@ -13,7 +13,10 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 TARGET_CFLAGS += "-I=${includedir}/glib-2.0 -I=${libdir}/glib-2.0/include"
 
 do_compile() {
-	$CC $TARGET_CFLAGS $TARGET_LDFLAGS -o ${B}/test-glib-helloworld ${WORKDIR}/test-glib-helloworld.c -lglib-2.0
+	${CC} ${TARGET_CFLAGS} ${TARGET_LDFLAGS} \
+	    -o ${B}/test-glib-helloworld \
+	    ${WORKDIR}/test-glib-helloworld.c \
+	    -lglib-2.0
 	install -m 0755 ${WORKDIR}/test-glib-python-gi.py ${B}/test-glib-python-gi.py
 }
 
