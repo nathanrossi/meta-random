@@ -55,7 +55,7 @@ class ClientSession:
 				self.command.append(self._buf[8:8 + plen].decode("utf-8"))
 				debug("server:client: got arg '{}'", self.command[-1])
 			elif ptype == 0xfe: # run
-				print("running command '{}'".format(repr(self.command)))
+				debug("running command '{}'".format(repr(self.command)))
 				self.process = subprocess.Popen(self.command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, stdin = subprocess.PIPE)
 				self.stdout = self.process.stdout
 				self.stderr = self.process.stderr
@@ -64,7 +64,11 @@ class ClientSession:
 				fl = fcntl.fcntl(self.stderr, fcntl.F_GETFL)
 				fcntl.fcntl(self.stderr, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 			elif ptype == 0x00: # stdin
-				pass
+				if self.process is not None:
+					self.process.stdin.write(self._buf[8:8 + plen])
+			elif ptype == 0x10: # stdin
+				if self.process is not None:
+					self.process.stdin.close()
 
 			# clear frame
 			self._buf = self._buf[8 + plen:]
@@ -162,6 +166,8 @@ class Client:
 		self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self._sock.connect((self.host, self.port))
 		self.send_command()
+		# nonblocking stdin
+		fcntl.fcntl(sys.stdin, fcntl.F_SETFL, fcntl.fcntl(sys.stdin, fcntl.F_GETFL) | os.O_NONBLOCK)
 
 	def close(self):
 		self._sock.close()
@@ -175,21 +181,34 @@ class Client:
 		debug("client: sent run")
 		self._sock.send(struct.pack("!II", 0, 0xfe))
 
+	def send_input_closed(self):
+		self._sock.send(struct.pack("!II", 0, 0x10))
+
+	def send_input(self, data):
+		self._sock.send(struct.pack("!II", len(data), 0x00) + data)
+
 	def wait(self):
 		rfds = [self._sock, sys.stdin]
 		while True:
 			rd, _, _ = select.select(rfds, [], [])
 			for fd in rd:
-				if self._sock is fd:
-					try:
+				try:
+					if self._sock is fd:
 						while True:
 							data = self._sock.recv(1024)
 							if data is None or len(data) == 0:
 								break
 							self.recv(data)
-					except BlockingIOError:
-						pass
-				else:
+					elif sys.stdin is fd:
+						while True:
+							data = os.read(sys.stdin.fileno(), 1024)
+							if len(data) != 0:
+								self.send_input(data)
+							if data is None or len(data) == 0:
+								rfds.pop(rfds.index(sys.stdin))
+								self.send_input_closed()
+								break
+				except BlockingIOError:
 					pass
 
 	def recv(self, data):
@@ -212,31 +231,37 @@ class Client:
 			# clear frame
 			self._buf = self._buf[8 + plen:]
 
-if len(sys.argv) >= 2 and sys.argv[1] == "-s" or sys.argv[1] == "-sd":
-	if sys.argv[1] == "-sd":
-		if os.fork() != 0:
-			sys.exit(0)
+def main(args):
+	if len(args) >= 2 and args[1] == "-s" or args[1] == "-sd":
+		if args[1] == "-sd":
+			if os.fork() != 0:
+				sys.exit(0)
 
-		# fork with second sid'd child
-		os.setsid()
-		if os.fork() != 0:
-			sys.exit(0)
+			# fork with second sid'd child
+			os.setsid()
+			if os.fork() != 0:
+				sys.exit(0)
 
-		# open /dev/null for stdio
-		dnfd = os.open(os.devnull, os.O_RDWR)
-		for i in [0, 1, 2]:
-			os.close(i)
-			os.dup2(dnfd, i)
+			# open /dev/null for stdio
+			dnfd = os.open(os.devnull, os.O_RDWR)
+			for i in [0, 1, 2]:
+				os.close(i)
+				os.dup2(dnfd, i)
 
-	s = Server(2222)
-	s.open()
-	s.wait()
-	s.close()
-else:
-	if len(sys.argv) < 2:
-		sys.exit(-1)
-	c = Client(sys.argv[1], 2222, sys.argv[2:])
-	c.open()
-	c.wait()
-	c.close()
+		s = Server(2222)
+		s.open()
+		s.wait()
+		s.close()
+	else:
+		if len(args) < 2:
+			sys.exit(-1)
+		c = Client(args[1], 2222, args[2:])
+		c.open()
+		c.wait()
+		c.close()
+
+try:
+	main(sys.argv)
+except KeyboardInterrupt:
+	sys.exit(0)
 
