@@ -8,7 +8,7 @@ Wants=network.target
 
 [Service]
 Type=oneshot
-ExecStart=-/usr/sbin/iw dev wlan0 set power_save off
+ExecStart=-/usr/sbin/iw dev %i set power_save off
 ExecStart=/usr/bin/gdbus call --system \
 		--dest fi.w1.wpa_supplicant1 \
 		--object-path /fi/w1/wpa_supplicant1 \
