@@ -9,9 +9,16 @@ do_deploy[noexec] = "1"
 
 inherit nopackages
 
+INHIBIT_DEFAULT_DEPS = "1"
+
 # needed for fetching toolchains
 DEPENDS += "ca-certificates-native"
 DEPENDS += "zip-native"
+
+DEPENDS += "lzop-native srecord-native"
+
+# for iasl - x86
+DEPENDS += "acpica-native"
 
 BUILD_CFLAGS += "-I${STAGING_DIR_NATIVE}/usr/include/python3.8"
 
@@ -43,3 +50,5 @@ EOF
         --output-dir=${B}
 }
 
+UBOOT_MACHINE = "none"
+COMPATIBLE_MACHINE = ".*"
