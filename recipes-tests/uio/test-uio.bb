@@ -1,7 +1,6 @@
 DESCRIPTION = "UIO test program"
 LICENSE = "MIT"
 
-FILESEXTRAPATHS_append := "${THISDIR}/files:"
 SRC_URI = " \
 		file://test-uio.c \
 		"

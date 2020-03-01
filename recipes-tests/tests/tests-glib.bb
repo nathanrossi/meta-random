@@ -3,7 +3,6 @@ LICENSE = "MIT"
 
 DEPENDS += "glib-2.0 python3 python3-pygobject"
 
-FILESEXTRAPATHS_append := "${THISDIR}/tests-glib:"
 SRC_URI = " \
 		file://test-glib-helloworld.c \
 		file://test-glib-python-gi.py \

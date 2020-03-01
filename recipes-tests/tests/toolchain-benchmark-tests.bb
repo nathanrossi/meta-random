@@ -1,9 +1,8 @@
 DESCRIPTION = "Toolchain Benchmark test programs"
 LICENSE = "MIT"
 
-FILESEXTRAPATHS_append := "${THISDIR}/files:"
-FILESEXTRAPATHS_append := "${THISDIR}/tests-benchmark:"
-FILESEXTRAPATHS_append := "${THISDIR}/../uio/files:"
+FILESEXTRAPATHS_prepend := "${THISDIR}/../uio/files:"
+FILESEXTRAPATHS_prepend := "${THISDIR}/tests-benchmark:"
 SRC_URI = " \
 		file://compiler-bench.py \
 		file://test-helloworld.c \
