@@ -1,6 +1,10 @@
-require recipes-bsp/u-boot/u-boot_2020.01.bb
+require recipes-bsp/u-boot/u-boot-common.inc
+require recipes-bsp/u-boot/u-boot.inc
 
-SRC_URI = "git://nathan-x1.home.rossihq.com/home/nathan/dev/u-boot;protocol=ssh;branch=master"
+DEPENDS += "bc-native dtc-native"
+
+#SRC_URI = "git://nathan-x1.home.rossihq.com/home/nathan/dev/u-boot;protocol=ssh;branch=master"
+SRC_URI = "git://nathan-x1.home.rossihq.com/home/nathan/dev/u-boot;protocol=ssh;branch=nrossi/spl-usb"
 SRCREV = "${AUTOREV}"
 
 do_configure[noexec] = "1"
@@ -40,14 +44,12 @@ EOF
     cd ${S}
 
     #./tools/buildman/buildman --fetch-arch arm
-    # --force-build \
     ./tools/buildman/buildman \
-        --branch=HEAD \
-        siemens samsung \
-        am33xx \
-        --detail --verbose --show_errors \
-        --count=1 \
-        --output-dir=${B}
+        --output-dir=${B} --branch=HEAD \
+        --detail --verbose --show_errors --count=1 \
+        -f \
+        x86 arm aarch64 powerpc m68k \
+        mips sh2 microblaze riscv64
 }
 
 UBOOT_MACHINE = "none"
