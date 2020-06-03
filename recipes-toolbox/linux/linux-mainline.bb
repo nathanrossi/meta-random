@@ -46,9 +46,19 @@ python do_generate_config() {
 addtask generate_config before do_configure after do_unpack
 
 KBUILD_DEFCONFIG_aarch64 = "defconfig"
+KBUILD_DEFCONFIG_arm = "multi_v7_defconfig"
+
 COMPATIBLE_MACHINE_raspberrypi3-b-plus = ".*"
+
 KBUILD_DEFCONFIG_raspberrypi0-wifi ?= "bcm2835_defconfig"
 COMPATIBLE_MACHINE_raspberrypi0-wifi = ".*"
+
+python do_generate_config_append_rpi () {
+    with open(d.expand("${B}/.config"), "a") as f:
+        f.write("CONFIG_BCM_VIDEOCORE=m\n")
+        f.write("CONFIG_BCM2835_VCHIQ=m\n")
+        f.write("CONFIG_VIDEO_BCM2835=m\n")
+}
 
 python do_generate_config_append_qemuarm () {
     with open(d.expand("${B}/.config"), "a") as f:
