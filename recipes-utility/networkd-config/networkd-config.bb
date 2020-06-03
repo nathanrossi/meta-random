@@ -58,7 +58,9 @@ ClientIdentifier=mac
 EOF
     install -D ${WORKDIR}/default-dhcp.network ${D}${sysconfdir}/systemd/network/default-dhcp.network
 
-    install -Dm 0644 ${WORKDIR}/wpa_supplicant-common.conf ${D}${sysconfdir}/wpa_supplicant/wpa_supplicant-common.conf
+    if [ -e ${WORKDIR}/wpa_supplicant-common.conf ]; then
+        install -Dm 0644 ${WORKDIR}/wpa_supplicant-common.conf ${D}${sysconfdir}/wpa_supplicant/wpa_supplicant-common.conf
+    fi
     install -Dm 644 ${WORKDIR}/wpa_supplicant-interface@.service ${D}${systemd_unitdir}/system/wpa_supplicant-interface@.service
     for i in ${WIRELESS}; do
         # enable service
