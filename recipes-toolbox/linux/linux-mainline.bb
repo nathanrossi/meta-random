@@ -46,9 +46,9 @@ python do_generate_config() {
 addtask generate_config before do_configure after do_unpack
 
 KBUILD_DEFCONFIG_aarch64 = "defconfig"
-KBUILD_DEFCONFIG_arm = "multi_v7_defconfig"
-
-COMPATIBLE_MACHINE_raspberrypi3-b-plus = ".*"
+KBUILD_DEFCONFIG_arm = "bcm2835_defconfig"
+#KBUILD_DEFCONFIG_arm = "multi_v7_defconfig"
+COMPATIBLE_MACHINE_rpi = ".*"
 
 KBUILD_DEFCONFIG_raspberrypi0-wifi ?= "bcm2835_defconfig"
 COMPATIBLE_MACHINE_raspberrypi0-wifi = ".*"
