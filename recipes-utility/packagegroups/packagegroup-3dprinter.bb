@@ -12,6 +12,7 @@ RDEPENDS_${PN} = " \
 		tmux \
 		\
 		ffmpeg \
+		v4l-utils \
 		\
 		printrun \
 		"
