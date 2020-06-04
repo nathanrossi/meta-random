@@ -55,7 +55,8 @@ COMPATIBLE_MACHINE_raspberrypi0-wifi = ".*"
 
 python do_generate_config_append_rpi () {
     with open(d.expand("${B}/.config"), "a") as f:
-        f.write("CONFIG_BCM_VIDEOCORE=m\n")
+        f.write("CONFIG_STAGING=y\n")
+        f.write("CONFIG_BCM_VIDEOCORE=y\n")
         f.write("CONFIG_BCM2835_VCHIQ=m\n")
         f.write("CONFIG_VIDEO_BCM2835=m\n")
 }
