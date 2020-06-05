@@ -59,6 +59,26 @@ python do_generate_config_append_rpi () {
         f.write("CONFIG_BCM_VIDEOCORE=y\n")
         f.write("CONFIG_BCM2835_VCHIQ=m\n")
         f.write("CONFIG_VIDEO_BCM2835=m\n")
+
+        # needed for usb serial devices
+        f.write("CONFIG_USB_SERIAL=y\n")
+        f.write("CONFIG_USB_SERIAL_GENERIC=y\n")
+        f.write("CONFIG_USB_SERIAL_ARK3116=m\n")
+        f.write("CONFIG_USB_SERIAL_BELKIN=m\n")
+        f.write("CONFIG_USB_SERIAL_CH341=m\n")
+        f.write("CONFIG_USB_SERIAL_CP210X=m\n")
+        f.write("CONFIG_USB_SERIAL_FTDI_SIO=m\n")
+        f.write("CONFIG_USB_SERIAL_F81232=m\n")
+        f.write("CONFIG_USB_SERIAL_IPW=m\n")
+        f.write("CONFIG_USB_SERIAL_PL2303=m\n")
+        f.write("CONFIG_USB_SERIAL_OTI6858=m\n")
+        f.write("CONFIG_USB_SERIAL_QUALCOMM=m\n")
+        f.write("CONFIG_USB_SERIAL_SPCP8X5=m\n")
+        f.write("CONFIG_USB_SERIAL_SIERRAWIRELESS=m\n")
+        f.write("CONFIG_USB_SERIAL_TI=m\n")
+        f.write("CONFIG_USB_SERIAL_WWAN=m\n")
+        f.write("CONFIG_USB_SERIAL_OPTION=m\n")
+        f.write("CONFIG_USB_ACM=m\n")
 }
 
 python do_generate_config_append_qemuarm () {
