@@ -22,6 +22,12 @@ DEPENDS += " \
 RDEPENDS_${PN} += " \
         python3-pyserial \
         python3-appdirs \
+        python3-xmlrpc \
+        python3-html \
+        python3-codecs \
+        python3-threading \
+        python3-netserver \
+        python3-pydoc \
         "
 
 # install scripts directly into bindir
