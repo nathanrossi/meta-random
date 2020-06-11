@@ -10,6 +10,8 @@ RDEPENDS_${PN} = " \
 		coreutils findutils \
 		tar xz unzip \
 		tmux \
+		ncurses-terminfo \
+		ncurses-terminfo-base \
 		\
 		ffmpeg \
 		v4l-utils \
