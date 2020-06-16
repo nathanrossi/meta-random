@@ -4,8 +4,8 @@ require recipes-bsp/u-boot/u-boot.inc
 DEPENDS += "bc-native dtc-native"
 
 #SRC_URI = "git://nathan-x1.home.rossihq.com/home/nathan/dev/u-boot;protocol=ssh;branch=master"
-SRC_URI = "git://nathan-x1.home.rossihq.com/home/nathan/dev/u-boot;protocol=ssh;branch=nrossi/spl-usb"
-SRCREV = "${AUTOREV}"
+#SRC_URI = "git://nathan-x1.home.rossihq.com/home/nathan/dev/u-boot;protocol=ssh;branch=nrossi/spl-usb"
+#SRCREV = "${AUTOREV}"
 
 do_configure[noexec] = "1"
 do_install[noexec] = "1"
