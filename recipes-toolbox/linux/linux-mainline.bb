@@ -17,8 +17,8 @@ COMPATIBLE_MACHINE = "^$"
 S = "${WORKDIR}/git"
 
 BRANCH = "master"
-SRCREV = "f359287765c04711ff54fbd11645271d8e5ff763"
-PV = "5.7+git${SRCPV}"
+SRCREV = "69119673bd50b176ded34032fadd41530fb5af21"
+PV = "5.8-rc1+git${SRCPV}"
 SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;protocol=https;branch=${BRANCH}"
 
 python do_generate_config() {
@@ -45,9 +45,10 @@ python do_generate_config() {
 }
 addtask generate_config before do_configure after do_unpack
 
-KBUILD_DEFCONFIG_aarch64 = "defconfig"
-KBUILD_DEFCONFIG_arm = "bcm2835_defconfig"
 #KBUILD_DEFCONFIG_arm = "multi_v7_defconfig"
+
+KBUILD_DEFCONFIG_aarch64 = "defconfig"
+KBUILD_DEFCONFIG_arm_rpi = "bcm2835_defconfig"
 COMPATIBLE_MACHINE_rpi = ".*"
 
 KBUILD_DEFCONFIG_raspberrypi0-wifi ?= "bcm2835_defconfig"
@@ -59,6 +60,11 @@ python do_generate_config_append_rpi () {
         f.write("CONFIG_BCM_VIDEOCORE=y\n")
         f.write("CONFIG_BCM2835_VCHIQ=m\n")
         f.write("CONFIG_VIDEO_BCM2835=m\n")
+
+        # hwrng
+        f.write("CONFIG_HW_RANDOM=y\n")
+        f.write("CONFIG_HW_RANDOM_BCM2835=y\n")
+        f.write("CONFIG_HW_RANDOM_IPROC_RNG200=y\n")
 
         # needed for usb serial devices
         f.write("CONFIG_USB_SERIAL=y\n")
