@@ -11,13 +11,13 @@ inherit core-image
 python () {
     if "rpi" in d.getVar("OVERRIDES").split(":"):
         # for rpi, pack the initramfs into the boot partition
-        d.appendVarFlag("do_image_wic", "depends", " bcm2835-bootfiles:do_deploy")
+        d.appendVarFlag("do_image_wic", "depends", " bootfiles:do_deploy")
         d.appendVarFlag('do_rootfs', 'depends', ' core-image-toolbox:do_image_complete')
         d.appendVar("IMAGE_BOOT_FILES", " core-image-toolbox-${MACHINE}.cpio.gz;initramfs.gz")
-        d.appendVar("IMAGE_BOOT_FILES", " bcm2835-bootfiles/*.txt")
-        d.appendVar("IMAGE_BOOT_FILES", " bcm2835-bootfiles/*.bin")
-        d.appendVar("IMAGE_BOOT_FILES", " bcm2835-bootfiles/*.dat")
-        d.appendVar("IMAGE_BOOT_FILES", " bcm2835-bootfiles/*.elf")
+        d.appendVar("IMAGE_BOOT_FILES", " bootfiles/*.txt")
+        d.appendVar("IMAGE_BOOT_FILES", " bootfiles/*.bin")
+        d.appendVar("IMAGE_BOOT_FILES", " bootfiles/*.dat")
+        d.appendVar("IMAGE_BOOT_FILES", " bootfiles/*.elf")
 
     if "x86-64" in d.getVar("OVERRIDES").split(":"):
         # put kernel stubed efi image into a directory that works for removable disks
