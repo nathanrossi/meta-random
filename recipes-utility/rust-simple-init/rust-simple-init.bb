@@ -3,6 +3,7 @@ LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 SRC_URI = "file://rust-simple-init.rs"
+SRC_URI += "file://rtsp-restreamer.py"
 
 S = "${WORKDIR}"
 B = "${WORKDIR}/build"
@@ -21,9 +22,14 @@ do_compile() {
 }
 
 do_install() {
-    install -d ${D}${base_sbindir}
+    install -d ${D}${base_sbindir} ${D}${bindir}
     install -m 0755 ${B}/rust-simple-init ${D}${base_sbindir}/init
+    install -m 0755 ${S}/rtsp-restreamer.py ${D}${bindir}/rtsp-restreamer
 }
 
 FILES_${PN} += "${base_sbindir}/*"
 
+# for rtsp-streamer
+RDEPENDS_${PN} += "python3-core python3-io python3-netserver"
+
+INSANE_SKIP_${PN} += "ldflags"

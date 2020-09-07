@@ -48,6 +48,18 @@ fn has_valid_usb_device_class() -> bool
 	return false;
 }
 
+fn wait_for_net_device(iface : &str)
+{
+	let ifacedir = Path::new("/sys/class/net").join(iface);
+	loop {
+		if ifacedir.exists() {
+			return;
+		}
+		// wait 250ms
+		std::thread::sleep(std::time::Duration::from_millis(250));
+	}
+}
+
 fn main()
 {
 	println!("init: started");
@@ -56,6 +68,9 @@ fn main()
 	//nix::unistd::sethostname("rpi");
 
 	setup_early_mounts();
+
+	// setup loopback
+	Command::new("/sbin/ip").args(&["link", "set", "dev", "lo", "up"]).status();
 
 	// start rngd for entropy
 	println!("init: starting rngd");
@@ -69,13 +84,42 @@ fn main()
 		Command::new("/sbin/ip").args(&["link", "set", "dev", "usb0", "up"]).status();
 		Command::new("/sbin/ip").args(&["addr", "add", "169.254.1.1/30", "dev", "usb0"]).status();
 		start_dhcpd("usb0", Ipv4Addr::new(169, 254, 1, 2), Ipv4Addr::new(169, 254, 1, 2));
+	} else {
+		// wait for eth0 to appear, on some boards it can be "slow" due to USB
+		println!("init: waiting for eth0");
+		wait_for_net_device("eth0");
+		println!("init: setup eth0");
+		Command::new("/sbin/ip").args(&["link", "set", "dev", "eth0", "up"]).status();
+		Command::new("/sbin/udhcpc").args(&["--interface=eth0"]).status();
 	}
 
 	// start ssh
 	openssh();
 
+	setup_rtsp_camera();
+
+	shell();
+}
+
+fn setup_rtsp_camera() -> io::Result<()>
+{
 	println!("init: load raspberry pi v4l2 driver");
 	Command::new("/sbin/modprobe").arg("bcm2835-v4l2").status();
+
+	let videonode = Path::new("/dev/video0");
+	if !videonode.exists() {
+		println!("init: no video device, skipping rtsp/camera setup");
+		return Ok(());
+	}
+
+	println!("init: starting rtsp server");
+	let rtsp = Command::new("/usr/bin/python3").arg("/usr/bin/rtsp-restreamer").spawn();
+	if let Ok(child) = rtsp {
+		println!("init: rtsp (pid = {})", child.id());
+	} else if let Err(err) = rtsp {
+		println!("init: failed to start rtsp -> {}", err);
+		return Err(err);
+	}
 
 	println!("init: starting raspberry pi rtp camera stream");
 	Command::new("ffmpeg")
@@ -86,10 +130,11 @@ fn main()
 		.arg("-i").arg("/dev/video0")
 		.arg("-vcodec").arg("copy")
 		.arg("-an")
-		.arg("-f").arg("mpegts")
-		.arg("udp://169.254.1.2:8000").status();
+		.arg("-f").arg("rtsp")
+		.arg("-rtsp_transport").arg("tcp")
+		.arg("rtsp://127.0.0.1/").status();
 
-	shell();
+	return Ok(());
 }
 
 fn setup_early_mounts() -> io::Result<()>
