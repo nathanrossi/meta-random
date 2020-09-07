@@ -17,8 +17,8 @@ COMPATIBLE_MACHINE = "^$"
 S = "${WORKDIR}/git"
 
 BRANCH = "master"
-SRCREV = "69119673bd50b176ded34032fadd41530fb5af21"
-PV = "5.8-rc1+git${SRCPV}"
+SRCREV = "dd9fb9bb3340c791a2be106fdc895db75f177343"
+PV = "5.9-rc3+git${SRCPV}"
 SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;protocol=https;branch=${BRANCH}"
 
 python do_generate_config() {
@@ -56,6 +56,27 @@ COMPATIBLE_MACHINE_raspberrypi0-wifi = ".*"
 
 python do_generate_config_append_rpi () {
     with open(d.expand("${B}/.config"), "a") as f:
+        # make sure aarch64/arm matches in base defconfig
+        f.write("CONFIG_CLK_RASPBERRYPI=y\n")
+        f.write("CONFIG_ARM_RASPBERRYPI_CPUFREQ=y\n")
+        f.write("CONFIG_SPI_BCM2835=y\n")
+        f.write("CONFIG_SPI_BCM2835AUX=y\n")
+        f.write("CONFIG_BCM2711_THERMAL=y\n")
+        f.write("CONFIG_BCM2835_THERMAL=y\n")
+        f.write("CONFIG_USB_LAN78XX=y\n")
+
+        # framebuffer console
+        f.write("CONFIG_DRM=y\n")
+        f.write("CONFIG_DRM_VC4=y\n")
+        f.write("CONFIG_FB_SIMPLE=y\n")
+        f.write("CONFIG_LOGO=n\n")
+
+        # pi3 - arm32 - neon support
+        if "neon" in d.getVar("TUNE_FEATURES"):
+            f.write("CONFIG_NEON=y\n")
+            f.write("CONFIG_KERNEL_MODE_NEON=y\n")
+
+        # camera
         f.write("CONFIG_STAGING=y\n")
         f.write("CONFIG_BCM_VIDEOCORE=y\n")
         f.write("CONFIG_BCM2835_VCHIQ=m\n")
@@ -85,6 +106,11 @@ python do_generate_config_append_rpi () {
         f.write("CONFIG_USB_SERIAL_WWAN=m\n")
         f.write("CONFIG_USB_SERIAL_OPTION=m\n")
         f.write("CONFIG_USB_ACM=m\n")
+}
+
+do_deploy_append_rpi () {
+    install -d ${DEPLOYDIR}/bootfiles
+    echo "dwc_otg.lpm_enable=0 console=tty0" > ${DEPLOYDIR}/bootfiles/cmdline.txt
 }
 
 python do_generate_config_append_qemuarm () {
