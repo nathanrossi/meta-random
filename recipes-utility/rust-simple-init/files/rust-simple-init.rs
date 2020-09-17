@@ -8,6 +8,9 @@ use std::path::PathBuf;
 use std::process;
 use std::process::Command;
 
+mod lib;
+use lib::configfs;
+
 fn start_dhcpd(iface : &str, start : Ipv4Addr, end : Ipv4Addr) -> io::Result<process::Child>
 {
 	// create config
@@ -60,6 +63,27 @@ fn wait_for_net_device(iface : &str)
 	}
 }
 
+fn setup_usb_gadgets() -> io::Result<Option<configfs::usb::Gadget>>
+{
+	// select first udc
+	let interfaces = configfs::usb::Gadget::interfaces()?.next();
+	if let Some(first) = interfaces {
+		// setup usb0 (usb gadget)
+		println!("init: setup usb gadget");
+		let device = configfs::usb::Gadget::create("0", "Nathan Rossi", "Pi Zero Camera")?;
+		let serial = device.add_function("acm", "GS0")?;
+		let network = device.add_function("eem", "usb0")?;
+		let config = device.add_config("Serial & Networking", &[&serial, &network])?;
+
+		// attach to port
+		println!("init: usb gadget attaching to {}", first);
+		device.attach(&first)?;
+
+		return Ok(Some(device));
+	}
+	return Ok(None);
+}
+
 fn main()
 {
 	println!("init: started");
@@ -76,27 +100,34 @@ fn main()
 	println!("init: starting rngd");
 	Command::new("/usr/sbin/rngd").arg("-f").arg("-r").arg("/dev/hwrng").spawn();
 
+	println!("init: setup usb gadget?");
+	configfs::usb::Gadget::debug_interfaces();
 	// check if any usb gadget capable ports exist
-	if has_valid_usb_device_class() {
-		// setup usb0 (usb gadget)
-		println!("init: setup usb gadget");
-		Command::new("/sbin/modprobe").arg("g_ether").status();
-		Command::new("/sbin/ip").args(&["link", "set", "dev", "usb0", "up"]).status();
-		Command::new("/sbin/ip").args(&["addr", "add", "169.254.1.1/30", "dev", "usb0"]).status();
-		start_dhcpd("usb0", Ipv4Addr::new(169, 254, 1, 2), Ipv4Addr::new(169, 254, 1, 2));
-	} else {
-		// wait for eth0 to appear, on some boards it can be "slow" due to USB
-		println!("init: waiting for eth0");
-		wait_for_net_device("eth0");
-		println!("init: setup eth0");
-		Command::new("/sbin/ip").args(&["link", "set", "dev", "eth0", "up"]).status();
-		Command::new("/sbin/udhcpc").args(&["--interface=eth0"]).status();
+	let gadget : Option<configfs::usb::Gadget>;
+	let getty;
+	if let Ok(device) = setup_usb_gadgets() {
+		gadget = device;
+
+		// TODO: networking setup
+		// Command::new("/sbin/ip").args(&["link", "set", "dev", "usb0", "up"]).status();
+		// Command::new("/sbin/ip").args(&["addr", "add", "169.254.1.1/30", "dev", "usb0"]).status();
+		// start_dhcpd("usb0", Ipv4Addr::new(169, 254, 1, 2), Ipv4Addr::new(169, 254, 1, 2));
+
+		getty = Command::new("/sbin/getty").args(&["-i", "-w", "-L", "115200", "/dev/ttyGS0"]).spawn();
 	}
 
-	// start ssh
-	openssh();
 
-	setup_rtsp_camera();
+	// wait for eth0 to appear, on some boards it can be "slow" due to USB
+	// println!("init: waiting for eth0");
+	// wait_for_net_device("eth0");
+	// println!("init: setup eth0");
+	// Command::new("/sbin/ip").args(&["link", "set", "dev", "eth0", "up"]).status();
+	// Command::new("/sbin/udhcpc").args(&["--interface=eth0"]).status();
+
+	// start ssh
+	// openssh();
+
+	// setup_rtsp_camera();
 
 	shell();
 }
