@@ -236,7 +236,7 @@ class RtspServer:
 		sdp = ("\r\n".join(sdpparts) + "\r\n").encode()
 		log("new sdp", repr(sdp))
 
-		status, fields, content = client.request("SETUP", parts.path + streampath, fields = {
+		status, fields, content = client.request("SETUP", parts.path + (streampath or ""), fields = {
 			"Transport" : "RTP/AVP/TCP;interleaved=0-1",
 			})
 		if status == RtspStream.ResponseCode.OK:
