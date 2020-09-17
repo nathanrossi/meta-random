@@ -7,6 +7,8 @@ inherit packagegroup
 RDEPENDS_${PN} = " \
 		packagegroup-base \
 		\
+		kernel-modules \
+		\
 		coreutils findutils \
 		tar xz unzip \
 		tmux \
