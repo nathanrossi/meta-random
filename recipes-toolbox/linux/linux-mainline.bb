@@ -22,6 +22,9 @@ PV = "5.9-rc3+git${SRCPV}"
 SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;protocol=https;branch=${BRANCH}"
 
 python do_generate_config() {
+    def append(f, name, val):
+        f.write("CONFIG_{}={}\n".format(name, val))
+
     with open(d.expand("${B}/.config"), "w") as f:
         with open(d.expand("${S}/arch/${ARCH}/configs/${KBUILD_DEFCONFIG}"), "r") as src:
             f.write(src.read())
@@ -87,25 +90,38 @@ python do_generate_config_append_rpi () {
         f.write("CONFIG_HW_RANDOM_BCM2835=y\n")
         f.write("CONFIG_HW_RANDOM_IPROC_RNG200=y\n")
 
-        # needed for usb serial devices
-        f.write("CONFIG_USB_SERIAL=y\n")
-        f.write("CONFIG_USB_SERIAL_GENERIC=y\n")
-        f.write("CONFIG_USB_SERIAL_ARK3116=m\n")
-        f.write("CONFIG_USB_SERIAL_BELKIN=m\n")
-        f.write("CONFIG_USB_SERIAL_CH341=m\n")
-        f.write("CONFIG_USB_SERIAL_CP210X=m\n")
-        f.write("CONFIG_USB_SERIAL_FTDI_SIO=m\n")
-        f.write("CONFIG_USB_SERIAL_F81232=m\n")
-        f.write("CONFIG_USB_SERIAL_IPW=m\n")
-        f.write("CONFIG_USB_SERIAL_PL2303=m\n")
-        f.write("CONFIG_USB_SERIAL_OTI6858=m\n")
-        f.write("CONFIG_USB_SERIAL_QUALCOMM=m\n")
-        f.write("CONFIG_USB_SERIAL_SPCP8X5=m\n")
-        f.write("CONFIG_USB_SERIAL_SIERRAWIRELESS=m\n")
-        f.write("CONFIG_USB_SERIAL_TI=m\n")
-        f.write("CONFIG_USB_SERIAL_WWAN=m\n")
-        f.write("CONFIG_USB_SERIAL_OPTION=m\n")
-        f.write("CONFIG_USB_ACM=m\n")
+        append(f, "USB_CONFIGFS", "y")
+        append(f, "USB_CONFIGFS_F_FS", "y")
+        append(f, "USB_CONFIGFS_ACM", "y")
+        append(f, "USB_CONFIGFS_NCM", "y")
+        append(f, "USB_CONFIGFS_EEM", "y")
+        append(f, "USB_CONFIGFS_F_UVC", "y")
+
+        # usb cdc-ether (host side)
+        append(f, "USB_USBNET", "y")
+        append(f, "USB_NET_CDCETHER", "y")
+        append(f, "USB_NET_CDC_EEM", "y")
+        append(f, "USB_NET_CDC_NCM", "y")
+
+        # needed for usb serial devices (just build them in)
+        append(f, "USB_SERIAL", "y")
+        append(f, "USB_SERIAL_GENERIC", "y")
+        append(f, "USB_SERIAL_ARK3116", "y")
+        append(f, "USB_SERIAL_BELKIN", "y")
+        append(f, "USB_SERIAL_CH341", "y")
+        append(f, "USB_SERIAL_CP210X", "y")
+        append(f, "USB_SERIAL_FTDI_SIO", "y")
+        append(f, "USB_SERIAL_F81232", "y")
+        append(f, "USB_SERIAL_IPW", "y")
+        append(f, "USB_SERIAL_PL2303", "y")
+        append(f, "USB_SERIAL_OTI6858", "y")
+        append(f, "USB_SERIAL_QUALCOMM", "y")
+        append(f, "USB_SERIAL_SPCP8X5", "y")
+        append(f, "USB_SERIAL_SIERRAWIRELESS", "y")
+        append(f, "USB_SERIAL_TI", "y")
+        append(f, "USB_SERIAL_WWAN", "y")
+        append(f, "USB_SERIAL_OPTION", "y")
+        append(f, "USB_ACM", "y")
 }
 
 do_deploy_append_rpi () {
