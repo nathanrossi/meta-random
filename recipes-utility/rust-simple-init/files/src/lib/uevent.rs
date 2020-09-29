@@ -80,7 +80,16 @@ impl Socket
 {
 	pub fn open() -> io::Result<Socket>
 	{
-		let fd = socket(AddressFamily::Netlink, SockType::Datagram, nix::sys::socket::SOCK_CLOEXEC, libc::NETLINK_KOBJECT_UEVENT)?;
+		return Socket::open_blocking(true);
+	}
+
+	pub fn open_blocking(blocking : bool) -> io::Result<Socket>
+	{
+		let mut opts = nix::sys::socket::SOCK_CLOEXEC;
+		if !blocking {
+			opts |= nix::sys::socket::SOCK_NONBLOCK;
+		}
+		let fd = socket(AddressFamily::Netlink, SockType::Datagram, opts, libc::NETLINK_KOBJECT_UEVENT)?;
 		bind(fd, &SockAddr::new_netlink(0, 1 | 2))?; // bind kernel + udev
 		return Ok(Socket { fd : fd });
 	}
@@ -103,6 +112,99 @@ impl Socket
 			return Ok(Some(props));
 		}
 		return Ok(None);
+	}
+}
+
+impl mio::event::Evented for Socket
+{
+	fn register(&self, poll : &mio::Poll, token: mio::Token, interest: mio::Ready, opts : mio::PollOpt) -> io::Result<()>
+	{
+		return mio::unix::EventedFd(&self.fd).register(poll, token, interest, opts);
+	}
+
+	fn reregister(&self, poll : &mio::Poll, token: mio::Token, interest: mio::Ready, opts : mio::PollOpt) -> io::Result<()>
+	{
+		return mio::unix::EventedFd(&self.fd).reregister(poll, token, interest, opts);
+	}
+
+	fn deregister(&self, poll : &mio::Poll) -> io::Result<()>
+	{
+		return mio::unix::EventedFd(&self.fd).deregister(poll);
+	}
+}
+
+pub struct SocketAsync
+{
+	source : tokio::io::PollEvented<Socket>,
+}
+
+impl SocketAsync
+{
+	pub fn open() -> io::Result<SocketAsync>
+	{
+		return Ok(SocketAsync { source : tokio::io::PollEvented::new(Socket::open_blocking(false)?)? });
+	}
+
+	pub async fn read(&mut self) -> io::Result<Option<HashMap<String, String>>>
+	{
+		return futures::future::poll_fn(|cx| self.poll_read(cx)).await;
+	}
+
+	pub fn poll_read(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<Option<HashMap<String, String>>, io::Error>>
+	{
+		let ready = mio::Ready::readable();
+		futures::ready!(self.source.poll_read_ready(cx, ready))?;
+		match self.source.get_ref().read() {
+			Ok(event) => std::task::Poll::Ready(Ok(event)),
+			Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+				self.source.clear_read_ready(cx, ready)?;
+				std::task::Poll::Pending
+			}
+			Err(e) => std::task::Poll::Ready(Err(e)),
+		}
+	}
+}
+
+pub struct DeviceMonitor<'a>
+{
+	observers : std::sync::Arc<std::sync::RwLock<Vec<(Option<String>, Box<dyn Fn(&HashMap<String, String>) + Send + Sync + 'a>)>>>,
+}
+
+impl<'a> DeviceMonitor<'a>
+{
+	pub fn new() -> DeviceMonitor<'a>
+	{
+		return DeviceMonitor { observers : std::sync::Arc::new(std::sync::RwLock::new(Vec::new())) };
+	}
+
+	pub fn recv(&self, uevent : &Socket) -> io::Result<()>
+	{
+		if let Some(event) = uevent.read()? {
+			self.process_event(&event);
+		}
+		return Ok(());
+	}
+
+	pub fn process_event(&self, event : &HashMap<String, String>)
+	{
+		let o = self.observers.read().unwrap();
+		for (subsystem, callback) in o.iter() {
+			if let Some(name) = subsystem {
+				if let Some(eventname) = event.get("SUBSYSTEM") {
+					if eventname == name {
+						callback(&event);
+					}
+				}
+			} else {
+				callback(&event);
+			}
+		}
+	}
+
+	pub fn register_subsystem(&mut self, subsystem : &str, callback : impl Fn(&HashMap<String, String>) + Send + Sync + 'a)
+	{
+		let mut o = self.observers.write().unwrap();
+		o.push((Some(subsystem.to_owned()), Box::new(callback)));
 	}
 }
 

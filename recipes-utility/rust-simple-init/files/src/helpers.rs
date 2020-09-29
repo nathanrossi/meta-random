@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::process;
 use std::process::Command;
 
-fn start_dhcpd(iface : &str, start : Ipv4Addr, end : Ipv4Addr) -> io::Result<process::Child>
+pub fn start_dhcpd(iface : &str, start : Ipv4Addr, end : Ipv4Addr) -> io::Result<process::Child>
 {
 	// create config
 	let configpath = format!("/var/run/dhcp.{}.conf", iface);
@@ -28,7 +28,7 @@ fn start_dhcpd(iface : &str, start : Ipv4Addr, end : Ipv4Addr) -> io::Result<pro
 	return result;
 }
 
-fn has_valid_usb_device_class() -> bool
+pub fn has_valid_usb_device_class() -> bool
 {
 	let udcdir = Path::new("/sys/class/udc");
 	if !udcdir.exists() || !udcdir.is_dir() {
@@ -46,7 +46,7 @@ fn has_valid_usb_device_class() -> bool
 	return false;
 }
 
-fn wait_for_net_device(iface : &str)
+pub fn wait_for_net_device(iface : &str)
 {
 	let ifacedir = Path::new("/sys/class/net").join(iface);
 	loop {
@@ -58,7 +58,7 @@ fn wait_for_net_device(iface : &str)
 	}
 }
 
-fn shell()
+pub fn shell()
 {
 	println!("init: shell");
 	let result = Command::new("/bin/sh").status().expect("init: shell failed to start");
@@ -75,7 +75,7 @@ fn shell()
 	}
 }
 
-fn openssh() -> io::Result<process::Child>
+pub fn openssh() -> io::Result<process::Child>
 {
 	// check keys
 	let keydir = "/etc/ssh";

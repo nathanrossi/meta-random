@@ -2,26 +2,6 @@ use std::io;
 use std::path::Path;
 use std::collections::HashMap;
 
-// pub ServiceProcess
-// {
-// }
-
-// impl ServiceProcess
-// {
-	// pub fn spawn() -> io::Result<()>
-	// {
-	// }
-
-	// pub fn finished() -> io::Result<()>
-	// {
-	// }
-// }
-
-// pub struct ProcessManager
-// {
-
-// }
-
 struct Port
 {
 	baud : u32,
@@ -48,11 +28,28 @@ impl Manager
 		return Ok(());
 	}
 
-	fn check(&self, name : &str) -> io::Result<()>
+	pub fn check(&self, name : &str) -> io::Result<()>
 	{
 		// check
 		if Path::new("/dev").join(name).exists() {
 			println!("node '{}' exists", name);
+		}
+		return Ok(());
+	}
+
+	pub fn check_uevent(&self, event : &std::collections::HashMap<String, String>) -> io::Result<()>
+	{
+		if let Some(action) = event.get("ACTION") {
+			if action == "add" || action == "remove" {
+				if let Some(subsys) = event.get("SUBSYSTEM") {
+					if subsys == "tty" {
+						if let Some(devname) = event.get("DEVNAME") {
+							println!("change to tty '{}'", devname);
+							self.check(&devname[5..])?;
+						}
+					}
+				}
+			}
 		}
 		return Ok(());
 	}

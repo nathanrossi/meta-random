@@ -1,9 +1,14 @@
 use std::io;
+use std::path::Path;
 use std::process::Command;
+// use tokio::prelude::*;
+use std::sync::Arc;
 
 mod lib;
 use lib::configfs;
 use lib::uevent;
+mod helpers;
+use helpers::shell;
 
 fn setup_usb_gadgets() -> io::Result<Option<configfs::usb::Gadget>>
 {
@@ -26,19 +31,20 @@ fn setup_usb_gadgets() -> io::Result<Option<configfs::usb::Gadget>>
 	return Ok(None);
 }
 
-fn main() -> std::result::Result<(), Box<std::error::Error>>
+#[tokio::main]
+pub async fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 {
-	/*
 	println!("init: started");
 
 	//println!("init: set hostname");
 	//nix::unistd::sethostname("rpi");
 
-	setup_early_mounts();
+	// setup_early_mounts();
 
 	// setup loopback
-	Command::new("/sbin/ip").args(&["link", "set", "dev", "lo", "up"]).status();
+	// Command::new("/sbin/ip").args(&["link", "set", "dev", "lo", "up"]).status();
 
+	/*
 	// start rngd for entropy
 	println!("init: starting rngd");
 	Command::new("/usr/sbin/rngd").arg("-f").arg("-r").arg("/dev/hwrng").spawn();
@@ -61,16 +67,54 @@ fn main() -> std::result::Result<(), Box<std::error::Error>>
 	}
 	*/
 
-	let s = uevent::Socket::open()?;
-	loop {
-		if let Ok(message) = s.read() {
-			if let Some(event) = message {
-				for (k, v) in event.iter() {
-					println!("  '{}' = '{}'", k, v);
+	let mut poll = mio::Poll::new()?;
+	let mut events = mio::Events::with_capacity(64);
+
+	let mut consoles = lib::consoles::Manager::new();
+	consoles.add("ttyACM0", 115200)?;
+
+	let mut s = uevent::Socket::open().unwrap();
+	let mut sm = uevent::DeviceMonitor::new();
+	sm.register_subsystem("tty", |_| { println!("got event for tty"); });
+	// sm.register_subsystem("tty", |e| { consoles.check_uevent(e); });
+
+	poll.register(&mut s, mio::Token(0), mio::Ready::readable(), mio::PollOpt::edge())?;
+
+	tokio::spawn(async move {
+			let mut s2 = uevent::SocketAsync::open().unwrap();
+			println!("init: uevent monitor starting");
+			loop {
+				if let Ok(e) = s2.read().await {
+					if let Some(event) = e {
+						println!("got event");
+						sm.process_event(&event);
+					}
+				}
+			}
+		}).await?;
+
+	// loop {
+		// poll.poll(&mut events, None)?;
+		// for event in &events {
+			// if event.token() == mio::Token(0) {
+				// sm.recv(&s)?;
+			// }
+		// }
+	// }
+
+	/*
+	if let Some(action) = event.get("ACTION") {
+		if action == "add" || action == "remove" {
+			if let Some(subsys) = event.get("SUBSYSTEM") {
+				} if subsys == "net" {
+					if let Some(iface) = event.get("ID_NET_NAME_PATH") {
+						println!("change to network iface '{}'", iface);
+					}
 				}
 			}
 		}
 	}
+	*/
 
 	// wait for eth0 to appear, on some boards it can be "slow" due to USB
 	// println!("init: waiting for eth0");
@@ -86,13 +130,13 @@ fn main() -> std::result::Result<(), Box<std::error::Error>>
 
 	// shell();
 
-	// return Ok(());
+	return Ok(());
 }
 
 fn setup_rtsp_camera() -> io::Result<()>
 {
 	println!("init: load raspberry pi v4l2 driver");
-	Command::new("/sbin/modprobe").arg("bcm2835-v4l2").status();
+	Command::new("/sbin/modprobe").arg("bcm2835-v4l2").status()?;
 
 	let videonode = Path::new("/dev/video0");
 	if !videonode.exists() {
@@ -120,7 +164,7 @@ fn setup_rtsp_camera() -> io::Result<()>
 		.arg("-an")
 		.arg("-f").arg("rtsp")
 		.arg("-rtsp_transport").arg("tcp")
-		.arg("rtsp://127.0.0.1/").status();
+		.arg("rtsp://127.0.0.1/").status()?;
 
 	return Ok(());
 }
@@ -130,7 +174,7 @@ fn setup_early_mounts() -> io::Result<()>
 	println!("init: early mounts");
 	// mount /dev
 	// TODO: need to check if already mounted
-	Command::new("/bin/mount").args(&["-t", "devtmpfs", "none", "/dev", "-o", "mode=0755"]).status();
+	Command::new("/bin/mount").args(&["-t", "devtmpfs", "none", "/dev", "-o", "mode=0755"]).status()?;
 	// /dev/pts and /dev/ptmx
 	std::fs::create_dir_all("/dev/pts")?;
 	Command::new("/bin/mount").args(&["-t", "devpts", "devpts", "/dev/pts", "-o", "mode=0620,ptmxmode=0666,gid=5"]).status()?;
