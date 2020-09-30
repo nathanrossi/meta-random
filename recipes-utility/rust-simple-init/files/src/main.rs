@@ -1,165 +1,175 @@
 use std::io;
 use std::path::Path;
 use std::process::Command;
-// use tokio::prelude::*;
-
-use std::os::unix::io::AsRawFd;
+use std::net::Ipv4Addr;
 
 mod lib;
 use lib::configfs;
-use lib::uevent;
-mod helpers;
-use helpers::shell;
-
-fn setup_usb_gadgets() -> io::Result<Option<configfs::usb::Gadget>>
-{
-	// select first udc
-	let interfaces = configfs::usb::Gadget::interfaces()?.next();
-	if let Some(first) = interfaces {
-		// setup usb0 (usb gadget)
-		println!("init: setup usb gadget");
-		let device = configfs::usb::Gadget::create("0", "Nathan Rossi", "Pi Zero Camera")?;
-		let serial = device.add_function("acm", "GS0")?;
-		let network = device.add_function("eem", "usb0")?;
-		let config = device.add_config("Serial & Networking", &[&serial, &network])?;
-
-		// attach to port
-		println!("init: usb gadget attaching to {}", first);
-		device.attach(&first)?;
-
-		return Ok(Some(device));
-	}
-	return Ok(None);
-}
-
-// #[tokio::main]
-// pub async fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
+use lib::runtime::{Runtime, ServiceManager};
+use lib::service::ProcessService;
+use lib::console::ConsoleService;
+use lib::network;
+use lib::network::NetworkDeviceService;
+use lib::openssh::SSHService;
 
 pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 {
-	println!("init: started");
+	println!("[init] started");
 
-	//println!("init: set hostname");
-	//nix::unistd::sethostname("rpi");
+	println!("[init] setting hostname");
+	if let Err(_) = nix::unistd::sethostname("rpi") {
+		println!("[init] failed to set hostname");
+	}
 
-	setup_early_mounts()?;
+	let mut manager = ServiceManager::new();
+	let mut rt = Runtime::new().unwrap();
 
-	// setup loopback
-	Command::new("/sbin/ip").args(&["link", "set", "dev", "lo", "up"]).status()?;
+	{
+		let mut service = lib::mount::MountSetup::new();
+		// procfs is needed first in order to check mounts
+		service.add("proc", Some("proc"), "/proc", None);
+		service.add("sysfs", Some("sysfs"), "/sys", None);
+		// device nodes
+		service.add("devtmpfs", None, "/dev", Some("mode=0755"));
+		// /dev/pts and /dev/ptmx
+		service.add("devpts", Some("devpts"), "/dev/pts", Some("mode=0620,ptmxmode=0666,gid=5"));
+		// setup later mounts
+		service.add("tmpfs", Some("tmpfs"), "/run", Some("mode=0755,nodev,nosuid,strictatime"));
+		service.add("tmpfs", Some("tmpfs"), "/var/volatile", None);
+		// kernel debug
+		service.add("debugfs", None, "/sys/kernel/debug", None);
 
-	/*
-	// start rngd for entropy
-	println!("init: starting rngd");
-	Command::new("/usr/sbin/rngd").arg("-f").arg("-r").arg("/dev/hwrng").spawn();
+		let instance = manager.add_service(&rt, service, true);
+		rt.poll_service_ready(&mut manager, &instance)?; // wait for service to complete
+	}
 
-	println!("init: setup usb gadget?");
-	configfs::usb::Gadget::debug_interfaces();
+	// add serial consoles
+	manager.add_service(&rt, ConsoleService::new("ttyACM0", 115200, true), true);
+	manager.add_service(&rt, ConsoleService::new("ttyAMA0", 115200, true), true); // qemuarm serial
+	// manager.add_service(&rt, ConsoleService::new("ttyUSB0", 115200, true), true);
 
-	// setup usb gadget if available
-	let getty;
-	let gadget : Option<configfs::usb::Gadget>;
-	if let Ok(device) = setup_usb_gadgets() {
-		gadget = device;
+	// modprobe camera driver
+	let modprobe = manager.add_service(&rt, ProcessService::oneshot("/sbin/modprobe", &["bcm2835-v4l2"]), true);
+	rt.poll_service_ready(&mut manager, &modprobe)?;
 
-		// TODO: networking setup
-		// Command::new("/sbin/ip").args(&["link", "set", "dev", "usb0", "up"]).status();
-		// Command::new("/sbin/ip").args(&["addr", "add", "169.254.1.1/30", "dev", "usb0"]).status();
+	println!("[init] usb device class");
+	// configfs::usb::Gadget::debug_interfaces();
+
+	// add usb gadget
+	let firstudc = configfs::usb::Gadget::first_interface();
+	if let Some(udc) = firstudc {
+		manager.add_service(&rt, ConsoleService::new("ttyGS0", 115200, true), true); // gadget serial
+		manager.add_service(&rt, NetworkDeviceService::new("usb0", network::Config::StaticIpv4(Ipv4Addr::new(169, 254, 1, 1), 30, None)), true);
 		// start_dhcpd("usb0", Ipv4Addr::new(169, 254, 1, 2), Ipv4Addr::new(169, 254, 1, 2));
+		manager.add_service(&rt, lib::service::UsbGadgetService::new(&udc, || {
+				// setup usb0 (usb gadget)
+				let device = configfs::usb::Gadget::create("0", "Nathan Rossi", "Pi Zero Camera")?;
 
-		getty = Command::new("/sbin/getty").args(&["-i", "-w", "-L", "115200", "/dev/ttyGS0"]).spawn();
-	}
-	*/
+				let devicepath = device.path()?;
+				std::fs::write(&devicepath.join("bcdDevice"), "0x0100\n")?;
+				std::fs::write(&devicepath.join("bcdUSB"), "0x0100\n")?;
+				std::fs::write(&devicepath.join("bDeviceClass"), "0xef\n")?;
+				std::fs::write(&devicepath.join("bDeviceSubClass"), "0x02\n")?;
+				std::fs::write(&devicepath.join("bDeviceProtocol"), "0x01\n")?;
 
-	let poll = mio::Poll::new()?;
-	let mut events = mio::Events::with_capacity(64);
+				let serial = device.add_function("acm", "GS0")?;
+				// let network = device.add_function("eem", "usb0")?;
 
-	let mut consoles = std::vec::Vec::new();
-	consoles.push(lib::console::Manager::new("ttyACM0", 115200));
-	consoles.push(lib::console::Manager::new("ttyAMA0", 115200));
-	consoles.push(lib::console::Manager::new("ttyUSB0", 115200));
-
-	let mut s = uevent::Socket::open()?;
-	// let mut sm = uevent::DeviceMonitor::new();
-	// sm.register_subsystem("tty", |_| { println!("got event for tty"); });
-	// sm.register_subsystem("tty", |e| { console.uevent(e); });
-
-	poll.register(&mut s, mio::Token(0), mio::Ready::readable(), mio::PollOpt::edge())?;
-
-	let mut sigset = nix::sys::signal::SigSet::empty();
-	sigset.add(nix::sys::signal::Signal::SIGCHLD);
-	nix::sys::signal::sigprocmask(nix::sys::signal::SigmaskHow::SIG_BLOCK, Some(&sigset), None)?;
-	let mut sigfd = nix::sys::signalfd::SignalFd::with_flags(&sigset,
-			nix::sys::signalfd::SfdFlags::SFD_NONBLOCK |
-			nix::sys::signalfd::SfdFlags::SFD_CLOEXEC)?;
-
-	poll.register(&mut mio::unix::EventedFd(&sigfd.as_raw_fd()), mio::Token(1), mio::Ready::readable(), mio::PollOpt::edge())?;
-
-	// tokio::spawn(async move {
-			// let mut s2 = uevent::SocketAsync::open().unwrap();
-			// println!("init: uevent monitor starting");
-			// loop {
-				// if let Ok(e) = s2.read().await {
-					// if let Some(event) = e {
-						// sm.process_event(&event);
-					// }
-				// }
-			// }
-		// }).await?;
-		//
-
-	for i in &mut consoles {
-		&i.check()?;
-	}
-
-	loop {
-		poll.poll(&mut events, None)?;
-		for event in &events {
-			if event.token() == mio::Token(0) {
-				if let Some(event) = s.read()? {
-					for i in &mut consoles {
-						&i.uevent(&event)?;
-					}
+				// uvc
+				println!("[usbgadget] setting up uvc");
+				let uvc = device.add_function("uvc", "0");
+				if let Err(e) = &uvc {
+					println!("[usbgadget] error = {}", e);
+					device.debug()?;
+					return Ok(None);
 				}
-			} else if event.token() == mio::Token(1) {
-				if let Some(_) = sigfd.read_signal()? {
-					println!("got signal for child terminate");
-					for i in &mut consoles {
-						&i.cleanup();
-					}
-				}
-			}
-		}
+				let uvc = uvc.unwrap();
+				println!("[usbgadget] got uvc '{}'", uvc);
+
+				let functionpath = device.path()?.join("functions").join(&uvc);
+
+				// create frame info
+				let streampath = functionpath.join("streaming").join("mjpeg").join("m").join("720p");
+				println!("[usbgadget] creating streampath");
+				std::fs::create_dir_all(&streampath)?;
+				println!("[usbgadget] writing frame data");
+				std::fs::write(&streampath.join("wWidth"), "1280\n")?;
+				std::fs::write(&streampath.join("wHeight"), "720\n")?;
+				std::fs::write(&streampath.join("dwMinBitRate"), "10000000\n")?;
+				std::fs::write(&streampath.join("dwMaxBitRate"), "100000000\n")?;
+				std::fs::write(&streampath.join("dwMaxVideoFrameBufferSize"), "1843200\n")?; // W * H * 2
+				// std::fs::write(&streampath.join("dwFrameInterval"), "666666\n100000\n5000000\n")?; // (n * 100) ns -> fps = 1 / (v * 10 000 000)
+				std::fs::write(&streampath.join("dwFrameInterval"), "5000000\n")?; // (n * 100) ns -> fps = 1 / (v * 10 000 000)
+
+				// setup header info symlinks
+				let headerpath = functionpath.join("streaming").join("header").join("h");
+				println!("[usbgadget] create header info");
+				std::fs::create_dir_all(&headerpath)?;
+				let streamroot = functionpath.join("streaming").join("mjpeg").join("m");
+				println!("[usbgadget] linking stream info to header info");
+				std::os::unix::fs::symlink(&streamroot, headerpath.join("m"))?;
+
+				// setup class header links
+				let classpath = functionpath.join("streaming").join("class").join("fs");
+				println!("[usbgadget] create classpath {:?}", &classpath);
+				// std::fs::create_dir_all(&classpath)?;
+				println!("[usbgadget] linking header info to fs class info");
+				std::os::unix::fs::symlink(&headerpath, classpath.join("h"))?;
+				let classpath = functionpath.join("streaming").join("class").join("hs");
+				println!("[usbgadget] create classpath {:?}", &classpath);
+				// std::fs::create_dir_all(&classpath)?;
+				println!("[usbgadget] linking header info to hs class info");
+				std::os::unix::fs::symlink(&headerpath, classpath.join("h"))?;
+
+				// setup control class links
+				let controlpath = functionpath.join("control").join("header").join("h");
+				let classpath = functionpath.join("control").join("class");
+				println!("[usbgadget] create control path {:?}", &controlpath);
+				std::fs::create_dir_all(&controlpath)?;
+
+				// device.debug();
+				println!("[usbgadget] linking control header info to class");
+				std::os::unix::fs::symlink(&controlpath, classpath.join("fs").join("h"))?; // class/fs/h -> header/h
+				// std::os::unix::fs::symlink(&controlpath, classpath.join("hs").join("h"))?; // class/hs/h -> header/h, does not exist?
+				// std::os::unix::fs::symlink(&controlpath, classpath.join("ss").join("h"))?;
+
+				// set packet size (2K)
+				println!("[usbgadget] packet size");
+				std::fs::write(functionpath.join("streaming_maxpacket"), "2048")?;
+
+				println!("[usbgadget] device config?");
+				// device.add_config("Serial, Networking & UVC", &[&serial, &network, &uvc])?;
+				let config = device.add_config("Serial, Networking & UVC", &[&serial, &uvc])?;
+				let configpath = device.path()?.join("configs").join(config);
+				std::fs::write(&configpath.join("MaxPower"), "500\n")?;
+
+				// device.add_config("Serial, Networking & UVC", &[&uvc])?;
+				return Ok(Some(device));
+			}), true);
 	}
 
-	/*
-	if let Some(action) = event.get("ACTION") {
-		if action == "add" || action == "remove" {
-			if let Some(subsys) = event.get("SUBSYSTEM") {
-				} if subsys == "net" {
-					if let Some(iface) = event.get("ID_NET_NAME_PATH") {
-						println!("change to network iface '{}'", iface);
-					}
-				}
-			}
-		}
-	}
-	*/
+	// NOTE: https://forums.developer.nvidia.com/t/jetson-tk1-behaving-like-an-usb-camera/40316/15
+	// NOTE: http://www.davidhunt.ie/raspberry-pi-zero-with-pi-camera-as-usb-webcam/
 
-	// wait for eth0 to appear, on some boards it can be "slow" due to USB
-	// println!("init: waiting for eth0");
-	// wait_for_net_device("eth0");
-	// println!("init: setup eth0");
-	// Command::new("/sbin/ip").args(&["link", "set", "dev", "eth0", "up"]).status();
-	// Command::new("/sbin/udhcpc").args(&["--interface=eth0"]).status();
+	// network devices
+	manager.add_service(&rt, NetworkDeviceService::new("eth0", network::Config::DHCP), true);
 
-	// start ssh
-	// openssh();
+	// manager.add_service(&rt, ProcessService::new("/usr/sbin/rngd", &["-r", "/dev/hwrng"]), true);
+	// manager.add_service(&rt, SSHService::default(), true);
 
-	// setup_rtsp_camera();
+	// manager.add_service(&rt, ProcessService::new("/usr/bin/uvc-gadget", &["-i", "/usr/share/sample.jpg", "uvc.0"]), true);
+	manager.add_service(&rt, ProcessService::new("/usr/bin/uvc-gadget", &["-c", "/dev/video0", "uvc.0"]), true);
 
-	// shell();
+	// manager.add_service(&rt, ProcessService::new("/usr/bin/uvc-gadget",
+		// &["-d", "-f", "mjpeg", "-i", "/usr/share/sample.jpg", "-n3", "-r1", "-s1", "-u", "/dev/video0"]), true);
+	// manager.add_service(&rt, ProcessService::new("/usr/bin/uvc-gadget",
+		// &["-d", "-f", "1", "-n3", "-r1", "-s1", "-u", "/dev/video0"]), true);
+	// manager.add_service(&rt, ProcessService::new("/usr/bin/uvc-gadget",
+		// &["-d", "-f", "1", "-n3", "-r1", "-s1", "-v", "/dev/video0", "-u", "/dev/video1"]), true);
+	// manager.add_service(&rt, ProcessService::new("/usr/bin/uvc-gadget",
+		// &["-f", "1", "-r", "1", "-v", "/dev/video0", "-u", "/dev/video1"]), true);
 
-	// return Ok(());
+	return rt.poll(&mut manager);
 }
 
 fn setup_rtsp_camera() -> io::Result<()>
@@ -194,26 +204,6 @@ fn setup_rtsp_camera() -> io::Result<()>
 		.arg("-f").arg("rtsp")
 		.arg("-rtsp_transport").arg("tcp")
 		.arg("rtsp://127.0.0.1/").status()?;
-
-	return Ok(());
-}
-
-fn setup_early_mounts() -> io::Result<()>
-{
-	println!("init: early mounts");
-	// mount /dev
-	// TODO: need to check if already mounted
-	Command::new("/bin/mount").args(&["-t", "devtmpfs", "none", "/dev", "-o", "mode=0755"]).status()?;
-	// /dev/pts and /dev/ptmx
-	std::fs::create_dir_all("/dev/pts")?;
-	Command::new("/bin/mount").args(&["-t", "devpts", "devpts", "/dev/pts", "-o", "mode=0620,ptmxmode=0666,gid=5"]).status()?;
-	// setup later mounts
-	Command::new("/bin/mount").args(&["-t", "proc", "proc", "/proc"]).status()?;
-	Command::new("/bin/mount").args(&["-t", "sysfs", "sysfs", "/sys"]).status()?;
-	Command::new("/bin/mount").args(&["-t", "tmpfs", "tmpfs", "/run", "-o", "mode=0755,nodev,nosuid,strictatime"]).status()?;
-	Command::new("/bin/mount").args(&["-t", "tmpfs", "tmpfs", "/var/volatile"]).status()?;
-	// kernel debug
-	Command::new("/bin/mount").args(&["-t", "debugfs", "none", "/sys/kernel/debug"]).status()?;
 
 	return Ok(());
 }

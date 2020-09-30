@@ -12,5 +12,4 @@ nix = { git = "https://github.com/nix-rust/nix" }
 libc = "0.2"
 #mio = { version = "0.7", features = ["os-poll", "os-util"] }
 mio = { version = "0.6", features = [] }
-tokio = { version = "0.2", features = ["rt-core", "io-util", "io-driver", "process", "macros"] }
 futures = "0.3"

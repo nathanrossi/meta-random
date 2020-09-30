@@ -1,8 +1,8 @@
 use std::io;
 use std::mem;
 use std::collections::HashMap;
+use std::os::unix::io::{RawFd, AsRawFd};
 use libc;
-use std::os::unix::io::RawFd;
 use nix::sys::socket::{socket, bind, recvfrom, AddressFamily, SockType, SockAddr};
 use nix::sys::socket::SockFlag;
 use nix::sys::socket::SockProtocol;
@@ -131,6 +131,14 @@ impl Socket
 	}
 }
 
+impl AsRawFd for Socket
+{
+	fn as_raw_fd(&self) -> RawFd
+	{
+		return self.fd;
+	}
+}
+
 impl mio::event::Evented for Socket
 {
 	fn register(&self, poll : &mio::Poll, token: mio::Token, interest: mio::Ready, opts : mio::PollOpt) -> io::Result<()>
@@ -149,6 +157,7 @@ impl mio::event::Evented for Socket
 	}
 }
 
+/*
 pub struct SocketAsync
 {
 	source : tokio::io::PollEvented<Socket>,
@@ -184,47 +193,5 @@ impl SocketAsync
 		}
 	}
 }
-
-pub struct DeviceMonitor<'a>
-{
-	observers : std::sync::Arc<std::sync::RwLock<Vec<(Option<String>, Box<dyn Fn(&EventData) + Send + Sync + 'a>)>>>,
-}
-
-impl<'a> DeviceMonitor<'a>
-{
-	pub fn new() -> DeviceMonitor<'a>
-	{
-		return DeviceMonitor { observers : std::sync::Arc::new(std::sync::RwLock::new(Vec::new())) };
-	}
-
-	pub fn recv(&self, uevent : &Socket) -> Result<()>
-	{
-		if let Some(event) = uevent.read()? {
-			self.process_event(&event);
-		}
-		return Ok(());
-	}
-
-	pub fn process_event(&self, event : &EventData)
-	{
-		let o = self.observers.read().unwrap();
-		for (subsystem, callback) in o.iter() {
-			if let Some(name) = subsystem {
-				if let Some(eventname) = event.properties.get("SUBSYSTEM") {
-					if eventname == name {
-						callback(&event);
-					}
-				}
-			} else {
-				callback(&event);
-			}
-		}
-	}
-
-	pub fn register_subsystem(&mut self, subsystem : &str, callback : impl Fn(&EventData) + Send + Sync + 'a)
-	{
-		let mut o = self.observers.write().unwrap();
-		o.push((Some(subsystem.to_owned()), Box::new(callback)));
-	}
-}
+*/
 

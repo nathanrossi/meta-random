@@ -5,7 +5,7 @@ use super::super::procfs;
 fn check_mount() -> bool
 {
 	// check to see if the configfs mount is available
-	if !procfs::mount_available("/sys/kernel/config", Some("configfs")) {
+	if !procfs::mounted("/sys/kernel/config", None, Some("configfs")) {
 		println!("usbcfs: mounting");
 		let mount = std::process::Command::new("/bin/mount")
 			.args(&["-t", "configfs", "none", "/sys/kernel/config"])
@@ -134,6 +134,8 @@ impl Gadget {
 		let functions = self.path()?.join("functions");
 		let base = format!("{}.{}", function, name);
 		std::fs::create_dir_all(&functions)?;
+		// TODO: if above succeeds but the need one fails, then the function is not available? (aka
+		// module is missing or not configured in the kernel.
 		std::fs::create_dir_all(&functions.join(&base))?;
 		return Ok(base);
 	}
@@ -268,6 +270,16 @@ impl Gadget {
 			);
 	}
 
+	pub fn first_interface() -> Option<String>
+	{
+		if let Ok(interfaces) = &mut Gadget::interfaces() {
+			if let Some(first) = interfaces.next() {
+				return Some(first);
+			}
+		}
+		return None
+	}
+
 	pub fn has_interfaces() -> bool
 	{
 		if let Ok(interfaces) = Gadget::interfaces() {
@@ -294,6 +306,36 @@ impl Gadget {
 		for config in self.configs()? {
 			println!("    * {}", config);
 		}
+		println!("  Configfs Tree:");
+		Self::debug_configfs_tree(self.path()?.as_path(), self.path()?.as_path())?;
+		return Ok(());
+	}
+
+	fn debug_configfs_tree(path : &Path, root : &Path) -> io::Result<()>
+	{
+		let absroot = root.canonicalize()?;
+		let absbase = path.canonicalize()?;
+		let relbase = absbase.strip_prefix(&absroot).unwrap_or(&absbase);
+
+		for d in std::fs::read_dir(path).unwrap() {
+			let entry = d?;
+
+			let relpath = relbase.join(entry.file_name());
+			if let Ok(filetype) = entry.file_type() {
+				if filetype.is_dir() {
+					Self::debug_configfs_tree(entry.path().as_path(), root)?;
+					println!(" -> {}/", relpath.display());
+				} else if filetype.is_file() {
+					println!(" -> {}", relpath.display());
+				} else if filetype.is_symlink() {
+					if let Ok(linkpath) = entry.path().read_link() {
+						println!(" -> {} -> {:?}", relpath.display(), linkpath);
+					} else {
+						println!(" -> {} -> <error>", relpath.display());
+					}
+				}
+			}
+		}
 		return Ok(());
 	}
 
@@ -313,3 +355,14 @@ impl Drop for Gadget {
 	}
 }
 
+#[cfg(test)]
+mod tests
+{
+	use super::*;
+
+	#[test]
+	fn dummy()
+	{
+		Gadget::debug_configfs_tree(Path::new("."), Path::new(".")).unwrap();
+	}
+}

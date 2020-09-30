@@ -28,7 +28,7 @@ SRC_URI += " \
     crate://crates.io/iovec/0.1.4 \
     crate://crates.io/kernel32-sys/0.2.2 \
     crate://crates.io/lazy_static/1.4.0 \
-    crate://crates.io/libc/0.2.77 \
+    crate://crates.io/libc/0.2.78 \
     crate://crates.io/log/0.4.11 \
     crate://crates.io/memchr/2.3.3 \
     crate://crates.io/mio-named-pipes/0.1.7 \
@@ -86,3 +86,8 @@ FILES_${PN} += "${base_sbindir}/*"
 RDEPENDS_${PN} += "python3-core python3-io python3-netserver"
 
 INSANE_SKIP_${PN} += "ldflags"
+
+INHIBIT_PACKAGE_STRIP = "1"
+# INHIBIT_PACKAGE_STRIP_FILES = "${base_sbindir}/init"
+
+RDEPENDS_${PN} += "uvc-gadget"
