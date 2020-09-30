@@ -124,11 +124,6 @@ python do_generate_config_append_rpi () {
         append(f, "USB_ACM", "y")
 }
 
-do_deploy_append_rpi () {
-    install -d ${DEPLOYDIR}/bootfiles
-    echo "dwc_otg.lpm_enable=0 console=tty0" > ${DEPLOYDIR}/bootfiles/cmdline.txt
-}
-
 python do_generate_config_append_qemuarm () {
     with open(d.expand("${B}/.config"), "a") as f:
         f.write("CONFIG_DEVTMPFS=y\n")
