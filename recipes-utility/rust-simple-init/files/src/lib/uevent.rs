@@ -4,8 +4,12 @@ use std::collections::HashMap;
 use libc;
 use std::os::unix::io::RawFd;
 use nix::sys::socket::{socket, bind, recvfrom, AddressFamily, SockType, SockAddr};
+use nix::sys::socket::SockFlag;
+use nix::sys::socket::SockProtocol;
 
-pub fn netlink_add_group(fd : std::os::unix::io::RawFd, group : i32) -> io::Result<()>
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+pub fn netlink_add_group(fd : std::os::unix::io::RawFd, group : i32) -> Result<()>
 {
 	let val : libc::c_int = group;
 	unsafe {
@@ -13,62 +17,71 @@ pub fn netlink_add_group(fd : std::os::unix::io::RawFd, group : i32) -> io::Resu
 			libc::SOL_NETLINK, libc::NETLINK_ADD_MEMBERSHIP,
 			val as *const libc::c_void, mem::size_of::<libc::c_int>() as u32);
 		if result != 0 {
-			return Err(std::io::Error::last_os_error());
+			return Err(Box::new(std::io::Error::last_os_error()));
 		}
 	}
 	return Ok(());
 }
 
-fn parse_prop(data : &[u8]) -> Option<(&str, &str)>
+pub struct EventData
 {
-	if let Ok(s) = std::str::from_utf8(data) {
-		let mut parts = s.splitn(2, "=");
-		// ignore "action@path"
-		if let Some(key) = parts.next() {
-			if let Some(value) = parts.next() {
-				return Some((key, value));
-			}
-		}
-	}
-	return None;
+	pub udev : bool,
+	pub properties : HashMap<String, String>,
 }
 
-fn parse_message(data : &[u8], udev : bool) -> Option<HashMap<String, String>>
+impl EventData
 {
-	let header_size = 8 + (8 * 4);
-
-	if data.len() == 0 {
-		return None;
-	} else if udev && data.len() < header_size {
-		return None;
-	}
-
-	let mut offset = 0;
-
-	if udev {
-		// let prefix : &[u8] = &data[0..8];
-		// std::str::from_utf8(prefix).unwrap()
-		offset += header_size;
-	}
-
-	let mut properties : HashMap<String, String> = HashMap::new();
-	loop {
-		if offset >= data.len() {
-			break;
+	fn parse_prop(data : &[u8]) -> Option<(&str, &str)>
+	{
+		if let Ok(s) = std::str::from_utf8(data) {
+			let mut parts = s.splitn(2, "=");
+			// ignore "action@path"
+			if let Some(key) = parts.next() {
+				if let Some(value) = parts.next() {
+					return Some((key, value));
+				}
+			}
 		}
-		let mut end = offset;
+		return None;
+	}
+
+	fn parse_message(data : &[u8], udev : bool) -> Option<EventData>
+	{
+		let header_size = 8 + (8 * 4);
+
+		if data.len() == 0 {
+			return None;
+		} else if udev && data.len() < header_size {
+			return None;
+		}
+
+		let mut offset = 0;
+
+		if udev {
+			// let prefix : &[u8] = &data[0..8];
+			// std::str::from_utf8(prefix).unwrap()
+			offset += header_size;
+		}
+
+		let mut properties : HashMap<String, String> = HashMap::new();
 		loop {
-			if end >= data.len() || data[end] == 0 {
+			if offset >= data.len() {
 				break;
 			}
-			end += 1;
+			let mut end = offset;
+			loop {
+				if end >= data.len() || data[end] == 0 {
+					break;
+				}
+				end += 1;
+			}
+			if let Some((key, val)) = EventData::parse_prop(&data[offset..end]) {
+				properties.insert(key.to_owned(), val.to_owned());
+			}
+			offset = end + 1;
 		}
-		if let Some((key, val)) = parse_prop(&data[offset..end]) {
-			properties.insert(key.to_owned(), val.to_owned());
-		}
-		offset = end + 1;
+		return Some(EventData { udev : udev, properties : properties });
 	}
-	return Some(properties);
 }
 
 pub struct Socket
@@ -78,38 +91,41 @@ pub struct Socket
 
 impl Socket
 {
-	pub fn open() -> io::Result<Socket>
+	pub fn open() -> nix::Result<Socket>
 	{
 		return Socket::open_blocking(true);
 	}
 
-	pub fn open_blocking(blocking : bool) -> io::Result<Socket>
+	pub fn open_blocking(blocking : bool) -> nix::Result<Socket>
 	{
-		let mut opts = nix::sys::socket::SOCK_CLOEXEC;
+		let mut opts = SockFlag::SOCK_CLOEXEC;
 		if !blocking {
-			opts |= nix::sys::socket::SOCK_NONBLOCK;
+			opts |= SockFlag::SOCK_NONBLOCK;
 		}
-		let fd = socket(AddressFamily::Netlink, SockType::Datagram, opts, libc::NETLINK_KOBJECT_UEVENT)?;
+		let fd = socket(AddressFamily::Netlink, SockType::Datagram, opts, SockProtocol::NetlinkKObjectUEvent)?;
 		bind(fd, &SockAddr::new_netlink(0, 1 | 2))?; // bind kernel + udev
 		return Ok(Socket { fd : fd });
 	}
 
-	pub fn read(&self) -> io::Result<Option<HashMap<String, String>>>
+	pub fn read(&self) -> nix::Result<Option<EventData>>
 	{
 		let mut buf = [0u8; 4096];
 		let (size, addr) = recvfrom(self.fd, &mut buf)?;
+
 		if size == 0 {
 			return Ok(None);
 		}
 
 		// check if udev source
 		let mut udev : bool = false;
-		if let SockAddr::Netlink(nladdr) = addr {
-			udev = nladdr.groups() == 2;
+		if let Some(a) = addr {
+			if let SockAddr::Netlink(nladdr) = a {
+				udev = nladdr.groups() == 2;
+			}
 		}
 
-		if let Some(props) = parse_message(&buf[0..size], udev) {
-			return Ok(Some(props));
+		if let Some(data) = EventData::parse_message(&buf[0..size], udev) {
+			return Ok(Some(data));
 		}
 		return Ok(None);
 	}
@@ -140,34 +156,38 @@ pub struct SocketAsync
 
 impl SocketAsync
 {
-	pub fn open() -> io::Result<SocketAsync>
+	pub fn open() -> Result<SocketAsync>
 	{
 		return Ok(SocketAsync { source : tokio::io::PollEvented::new(Socket::open_blocking(false)?)? });
 	}
 
-	pub async fn read(&mut self) -> io::Result<Option<HashMap<String, String>>>
+	pub async fn read(&mut self) -> Result<Option<EventData>>
 	{
 		return futures::future::poll_fn(|cx| self.poll_read(cx)).await;
 	}
 
-	pub fn poll_read(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<Option<HashMap<String, String>>, io::Error>>
+	pub fn poll_read(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<Option<EventData>>>
 	{
 		let ready = mio::Ready::readable();
 		futures::ready!(self.source.poll_read_ready(cx, ready))?;
 		match self.source.get_ref().read() {
-			Ok(event) => std::task::Poll::Ready(Ok(event)),
-			Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
-				self.source.clear_read_ready(cx, ready)?;
-				std::task::Poll::Pending
+			Ok(event) => { return std::task::Poll::Ready(Ok(event)); }
+			Err(e) => {
+				if let nix::Error::Sys(errno) = e {
+					if errno == nix::errno::Errno::EAGAIN {
+						self.source.clear_read_ready(cx, ready)?;
+						return std::task::Poll::Pending;
+					}
+				}
+				return std::task::Poll::Ready(Err(Box::new(e)));
 			}
-			Err(e) => std::task::Poll::Ready(Err(e)),
 		}
 	}
 }
 
 pub struct DeviceMonitor<'a>
 {
-	observers : std::sync::Arc<std::sync::RwLock<Vec<(Option<String>, Box<dyn Fn(&HashMap<String, String>) + Send + Sync + 'a>)>>>,
+	observers : std::sync::Arc<std::sync::RwLock<Vec<(Option<String>, Box<dyn Fn(&EventData) + Send + Sync + 'a>)>>>,
 }
 
 impl<'a> DeviceMonitor<'a>
@@ -177,7 +197,7 @@ impl<'a> DeviceMonitor<'a>
 		return DeviceMonitor { observers : std::sync::Arc::new(std::sync::RwLock::new(Vec::new())) };
 	}
 
-	pub fn recv(&self, uevent : &Socket) -> io::Result<()>
+	pub fn recv(&self, uevent : &Socket) -> Result<()>
 	{
 		if let Some(event) = uevent.read()? {
 			self.process_event(&event);
@@ -185,12 +205,12 @@ impl<'a> DeviceMonitor<'a>
 		return Ok(());
 	}
 
-	pub fn process_event(&self, event : &HashMap<String, String>)
+	pub fn process_event(&self, event : &EventData)
 	{
 		let o = self.observers.read().unwrap();
 		for (subsystem, callback) in o.iter() {
 			if let Some(name) = subsystem {
-				if let Some(eventname) = event.get("SUBSYSTEM") {
+				if let Some(eventname) = event.properties.get("SUBSYSTEM") {
 					if eventname == name {
 						callback(&event);
 					}
@@ -201,7 +221,7 @@ impl<'a> DeviceMonitor<'a>
 		}
 	}
 
-	pub fn register_subsystem(&mut self, subsystem : &str, callback : impl Fn(&HashMap<String, String>) + Send + Sync + 'a)
+	pub fn register_subsystem(&mut self, subsystem : &str, callback : impl Fn(&EventData) + Send + Sync + 'a)
 	{
 		let mut o = self.observers.write().unwrap();
 		o.push((Some(subsystem.to_owned()), Box::new(callback)));

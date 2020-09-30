@@ -2,7 +2,8 @@ use std::io;
 use std::path::Path;
 use std::process::Command;
 // use tokio::prelude::*;
-use std::sync::Arc;
+
+use std::os::unix::io::AsRawFd;
 
 mod lib;
 use lib::configfs;
@@ -31,18 +32,20 @@ fn setup_usb_gadgets() -> io::Result<Option<configfs::usb::Gadget>>
 	return Ok(None);
 }
 
-#[tokio::main]
-pub async fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
+// #[tokio::main]
+// pub async fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
+
+pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 {
 	println!("init: started");
 
 	//println!("init: set hostname");
 	//nix::unistd::sethostname("rpi");
 
-	// setup_early_mounts();
+	setup_early_mounts()?;
 
 	// setup loopback
-	// Command::new("/sbin/ip").args(&["link", "set", "dev", "lo", "up"]).status();
+	Command::new("/sbin/ip").args(&["link", "set", "dev", "lo", "up"]).status()?;
 
 	/*
 	// start rngd for entropy
@@ -67,40 +70,66 @@ pub async fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 	}
 	*/
 
-	let mut poll = mio::Poll::new()?;
+	let poll = mio::Poll::new()?;
 	let mut events = mio::Events::with_capacity(64);
 
-	let mut consoles = lib::consoles::Manager::new();
-	consoles.add("ttyACM0", 115200)?;
+	let mut consoles = std::vec::Vec::new();
+	consoles.push(lib::console::Manager::new("ttyACM0", 115200));
+	consoles.push(lib::console::Manager::new("ttyAMA0", 115200));
+	consoles.push(lib::console::Manager::new("ttyUSB0", 115200));
 
-	let mut s = uevent::Socket::open().unwrap();
-	let mut sm = uevent::DeviceMonitor::new();
-	sm.register_subsystem("tty", |_| { println!("got event for tty"); });
-	// sm.register_subsystem("tty", |e| { consoles.check_uevent(e); });
+	let mut s = uevent::Socket::open()?;
+	// let mut sm = uevent::DeviceMonitor::new();
+	// sm.register_subsystem("tty", |_| { println!("got event for tty"); });
+	// sm.register_subsystem("tty", |e| { console.uevent(e); });
 
 	poll.register(&mut s, mio::Token(0), mio::Ready::readable(), mio::PollOpt::edge())?;
 
-	tokio::spawn(async move {
-			let mut s2 = uevent::SocketAsync::open().unwrap();
-			println!("init: uevent monitor starting");
-			loop {
-				if let Ok(e) = s2.read().await {
-					if let Some(event) = e {
-						println!("got event");
-						sm.process_event(&event);
+	let mut sigset = nix::sys::signal::SigSet::empty();
+	sigset.add(nix::sys::signal::Signal::SIGCHLD);
+	nix::sys::signal::sigprocmask(nix::sys::signal::SigmaskHow::SIG_BLOCK, Some(&sigset), None)?;
+	let mut sigfd = nix::sys::signalfd::SignalFd::with_flags(&sigset,
+			nix::sys::signalfd::SfdFlags::SFD_NONBLOCK |
+			nix::sys::signalfd::SfdFlags::SFD_CLOEXEC)?;
+
+	poll.register(&mut mio::unix::EventedFd(&sigfd.as_raw_fd()), mio::Token(1), mio::Ready::readable(), mio::PollOpt::edge())?;
+
+	// tokio::spawn(async move {
+			// let mut s2 = uevent::SocketAsync::open().unwrap();
+			// println!("init: uevent monitor starting");
+			// loop {
+				// if let Ok(e) = s2.read().await {
+					// if let Some(event) = e {
+						// sm.process_event(&event);
+					// }
+				// }
+			// }
+		// }).await?;
+		//
+
+	for i in &mut consoles {
+		&i.check()?;
+	}
+
+	loop {
+		poll.poll(&mut events, None)?;
+		for event in &events {
+			if event.token() == mio::Token(0) {
+				if let Some(event) = s.read()? {
+					for i in &mut consoles {
+						&i.uevent(&event)?;
+					}
+				}
+			} else if event.token() == mio::Token(1) {
+				if let Some(_) = sigfd.read_signal()? {
+					println!("got signal for child terminate");
+					for i in &mut consoles {
+						&i.cleanup();
 					}
 				}
 			}
-		}).await?;
-
-	// loop {
-		// poll.poll(&mut events, None)?;
-		// for event in &events {
-			// if event.token() == mio::Token(0) {
-				// sm.recv(&s)?;
-			// }
-		// }
-	// }
+		}
+	}
 
 	/*
 	if let Some(action) = event.get("ACTION") {
@@ -130,7 +159,7 @@ pub async fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 
 	// shell();
 
-	return Ok(());
+	// return Ok(());
 }
 
 fn setup_rtsp_camera() -> io::Result<()>

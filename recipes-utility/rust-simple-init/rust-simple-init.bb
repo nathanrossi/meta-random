@@ -10,9 +10,9 @@ SRC_URI = " \
 # crate dependencies
 SRC_URI += " \
     crate://crates.io/arc-swap/0.4.7 \
-    crate://crates.io/bitflags/0.7.0 \
     crate://crates.io/bitflags/1.2.1 \
     crate://crates.io/bytes/0.5.6 \
+    crate://crates.io/cc/1.0.60 \
     crate://crates.io/cfg-if/0.1.10 \
     crate://crates.io/fuchsia-zircon-sys/0.3.3 \
     crate://crates.io/fuchsia-zircon/0.3.3 \
@@ -37,7 +37,6 @@ SRC_URI += " \
     crate://crates.io/miow/0.2.1 \
     crate://crates.io/miow/0.3.5 \
     crate://crates.io/net2/0.2.35 \
-    crate://crates.io/nix/0.8.1 \
     crate://crates.io/once_cell/1.4.1 \
     crate://crates.io/pin-project-internal/0.4.23 \
     crate://crates.io/pin-project-lite/0.1.7 \
@@ -55,14 +54,16 @@ SRC_URI += " \
     crate://crates.io/tokio-macros/0.2.5 \
     crate://crates.io/tokio/0.2.22 \
     crate://crates.io/unicode-xid/0.2.1 \
-    crate://crates.io/void/1.0.2 \
     crate://crates.io/winapi-build/0.1.1 \
     crate://crates.io/winapi-i686-pc-windows-gnu/0.4.0 \
     crate://crates.io/winapi-x86_64-pc-windows-gnu/0.4.0 \
     crate://crates.io/winapi/0.2.8 \
     crate://crates.io/winapi/0.3.9 \
     crate://crates.io/ws2_32-sys/0.2.1 \
+    git://github.com/nix-rust/nix;protocol=https;nobranch=1;name=nix;destsuffix=nix \
     "
+SRCREV_nix = "${AUTOREV}"
+EXTRA_OECARGO_PATHS += "${WORKDIR}/nix"
 
 SRC_URI += "file://rtsp-restreamer.py"
 
