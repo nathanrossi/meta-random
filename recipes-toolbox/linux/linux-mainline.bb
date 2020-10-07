@@ -23,28 +23,49 @@ SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;prot
 
 python do_generate_config() {
     def append(f, name, val):
-        f.write("CONFIG_{}={}\n".format(name, val))
+        with open(d.expand("${B}/.config"), "a") as f:
+            f.write("CONFIG_{}={}\n".format(name, val))
+
+    def config(name, val):
+        with open(d.expand("${B}/.config"), "r") as source:
+            with open(d.expand("${B}/.config.tmp"), "w") as dest:
+                value = "CONFIG_{}".format(name)
+                comment = "# " + value
+
+                matched = False
+                for l in source:
+                    if l.startswith(value) or l.startswith(comment):
+                        dest.write("CONFIG_{}={}\n".format(name, val))
+                        matched = True
+                    else:
+                        dest.write(l)
+
+                if not matched: # append if not set
+                    dest.write("CONFIG_{}={}\n".format(name, val))
+
+        os.remove(d.expand("${B}/.config"))
+        os.rename(d.expand("${B}/.config.tmp"), d.expand("${B}/.config"))
 
     with open(d.expand("${B}/.config"), "w") as f:
         with open(d.expand("${S}/arch/${ARCH}/configs/${KBUILD_DEFCONFIG}"), "r") as src:
             f.write(src.read())
 
-        # iptables/etc modules
-        f.write("CONFIG_IP_NF_IPTABLES=m\n")
-        f.write("CONFIG_IP_NF_MATCH_ECN=m\n")
-        f.write("CONFIG_IP_NF_MATCH_TTL=m\n")
-        f.write("CONFIG_IP_NF_FILTER=m\n")
-        f.write("CONFIG_IP_NF_TARGET_REJECT=m\n")
-        f.write("CONFIG_IP_NF_TARGET_MASQUERADE=m\n")
-        f.write("CONFIG_IP_NF_TARGET_REDIRECT=m\n")
-        f.write("CONFIG_IP_NF_TARGET_NETMAP=m\n")
-        f.write("CONFIG_IP_NF_MANGLE=m\n")
-        f.write("CONFIG_IP_NF_TARGET_ECN=m\n")
-        f.write("CONFIG_IP_NF_TARGET_CLUSTERIP=m\n")
-        f.write("CONFIG_IP_NF_RAW=m\n")
-        f.write("CONFIG_IP_NF_ARPTABLES=m\n")
-        f.write("CONFIG_IP_NF_ARPFILTER=m\n")
-        f.write("CONFIG_IP_NF_ARP_MANGLE=m\n")
+    # iptables/etc modules
+    config("IP_NF_IPTABLES", "m")
+    config("IP_NF_MATCH_ECN", "m")
+    config("IP_NF_MATCH_TTL", "m")
+    config("IP_NF_FILTER", "m")
+    config("IP_NF_TARGET_REJECT", "m")
+    config("IP_NF_TARGET_MASQUERADE", "m")
+    config("IP_NF_TARGET_REDIRECT", "m")
+    config("IP_NF_TARGET_NETMAP", "m")
+    config("IP_NF_MANGLE", "m")
+    config("IP_NF_TARGET_ECN", "m")
+    config("IP_NF_TARGET_CLUSTERIP", "m")
+    config("IP_NF_RAW", "m")
+    config("IP_NF_ARPTABLES", "m")
+    config("IP_NF_ARPFILTER", "m")
+    config("IP_NF_ARP_MANGLE", "m")
 }
 addtask generate_config before do_configure after do_unpack
 
@@ -125,15 +146,24 @@ python do_generate_config_append_rpi () {
 }
 
 python do_generate_config_append_qemuarm () {
-    with open(d.expand("${B}/.config"), "a") as f:
-        f.write("CONFIG_DEVTMPFS=y\n")
-        f.write("CONFIG_THUMB=y\n")
-        f.write("CONFIG_PCI=y\n")
-        f.write("CONFIG_PCI_VERSATILE=y\n")
+    config("DEVTMPFS", "y")
+    config("IKCONFIG_PROC", "y")
+
+    config("USB_DUMMY_HCD", "y") # emulate a UDC
+    config("USB_CONFIGFS", "y")
+    config("USB_CONFIGFS_F_FS", "y")
+    config("USB_CONFIGFS_ACM", "y")
+    config("USB_CONFIGFS_NCM", "y")
+    config("USB_CONFIGFS_EEM", "y")
+    config("USB_CONFIGFS_F_UVC", "y")
+
+    config("MEDIA_SUPPORT", "y")
+    config("VIDEO_DEV", "y")
+    config("VIDEO_V4L2", "y")
+    config("USB_USB_F_UVC", "y")
 }
-KBUILD_DEFCONFIG_qemuarm = "versatile_defconfig"
+KBUILD_DEFCONFIG_qemuarm = "multi_v7_defconfig"
 COMPATIBLE_MACHINE_qemuarm = ".*"
-KERNEL_DEVICETREE_qemuarm = "versatile-pb.dtb"
 
 python do_generate_config_append_toolbox-x64 () {
     with open(d.expand("${B}/.config"), "a") as f:
