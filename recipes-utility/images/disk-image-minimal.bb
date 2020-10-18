@@ -16,8 +16,8 @@ do_image_wic[depends] += "core-image-minimal:do_image_complete"
 GENERATED_DEPLOY_DIR = "${WORKDIR}/image-bootfiles"
 DEPLOY_DIR_IMAGE_RELATIVE = "${@os.path.relpath(d.getVar("GENERATED_DEPLOY_DIR"), d.getVar("DEPLOY_DIR_IMAGE"))}"
 
+do_generate_deployables[dirs] += "${GENERATED_DEPLOY_DIR}"
 python do_generate_deployables() {
-    os.makedirs(d.getVar("GENERATED_DEPLOY_DIR"))
 }
 addtask generate_deployables before do_image_wic after do_image
 
