@@ -1,0 +1,25 @@
+From 10858121c8ee405d828e7b94f196b0f3db22cc65 Mon Sep 17 00:00:00 2001
+From: Nathan Rossi <nathan@nathanrossi.com>
+Date: Sat, 10 Oct 2020 22:52:01 +1000
+Subject: [PATCH] WIP
+
+---
+ lib/v4l2.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/lib/v4l2.c b/lib/v4l2.c
+index de6ed88794..e8d366a00c 100644
+--- a/lib/v4l2.c
++++ b/lib/v4l2.c
+@@ -115,6 +115,7 @@ v4l2_enum_frame_intervals(struct v4l2_device *dev, struct v4l2_format_desc *form
+ 			break;
+ 
+ 		case V4L2_FRMIVAL_TYPE_STEPWISE:
++		case V4L2_FRMIVAL_TYPE_CONTINUOUS:
+ 			ival->min = ivalenum.stepwise.min;
+ 			ival->max = ivalenum.stepwise.max;
+ 			ival->step = ivalenum.stepwise.step;
+-- 
+2.28.0
+
+
