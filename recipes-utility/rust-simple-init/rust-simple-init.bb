@@ -62,10 +62,8 @@ SRC_URI += " \
     crate://crates.io/ws2_32-sys/0.2.1 \
     git://github.com/nix-rust/nix;protocol=https;nobranch=1;name=nix;destsuffix=nix \
     "
-SRCREV_nix = "${AUTOREV}"
+SRCREV_nix = "477743d01254ba31a394770d4466960d47fa087f"
 EXTRA_OECARGO_PATHS += "${WORKDIR}/nix"
-
-SRC_URI += "file://rtsp-restreamer.py"
 
 S = "${WORKDIR}"
 B = "${WORKDIR}/build"
@@ -76,18 +74,12 @@ inherit cargo
 do_install_append() {
     install -d ${D}${base_sbindir} ${D}${bindir}
     install -m 0744 ${B}/target/${CARGO_TARGET_SUBDIR}/rust-simple-init ${D}${base_sbindir}/init
-    # install -m 0755 ${B}/rust-simple-init ${D}${base_sbindir}/init
-    install -m 0755 ${S}/rtsp-restreamer.py ${D}${bindir}/rtsp-restreamer
 }
 
 FILES_${PN} += "${base_sbindir}/*"
 
-# for rtsp-streamer
-RDEPENDS_${PN} += "python3-core python3-io python3-netserver"
-
 INSANE_SKIP_${PN} += "ldflags"
 
 INHIBIT_PACKAGE_STRIP = "1"
-# INHIBIT_PACKAGE_STRIP_FILES = "${base_sbindir}/init"
 
-RDEPENDS_${PN} += "uvc-gadget"
+RDEPENDS_${PN} += "mjpg-streamer"
