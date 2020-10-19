@@ -3,7 +3,7 @@ LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=751419260aa954499f7abaabaa882bbe"
 
 SRC_URI = "git://github.com/jacksonliam/mjpg-streamer.git;protocol=https"
-SRCREV = "501f6362c5afddcfb41055f97ae484252c85c912"
+SRCREV = "85f89a8c321e799fabb1693c5d133f3fb48ee748"
 PV = "0.4+git${SRCPV}"
 
 S = "${WORKDIR}/git/mjpg-streamer-experimental"
@@ -14,7 +14,7 @@ inherit cmake
 
 OECMAKE_GENERATOR = "Unix Makefiles"
 
-PACKAGECONFIG ??= "http"
+PACKAGECONFIG ??= "uvc"
 PACKAGECONFIG[http] = "-DENABLE_HTTP_MANAGEMENT=ON,-DENABLE_HTTP_MANAGEMENT=OFF"
 PACKAGECONFIG[uvc] = "-DPLUGIN_INPUT_UVC=ON,-DPLUGIN_INPUT_UVC=OFF,v4l-utils"
 PACKAGECONFIG[raspicam] = "-DPLUGIN_INPUT_RASPICAM=ON,-DPLUGIN_INPUT_RASPICAM=OFF,userland"
