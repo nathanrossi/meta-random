@@ -23,6 +23,7 @@ RDEPENDS_${PN} = " \
     python3-requests \
     python3-pytz \
     python3-tzlocal \
+    python3-dbus \
     \
     tmux \
     \
