@@ -66,7 +66,7 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 		manager.add_service(&rt, usb0, true);
 		manager.add_service(&rt, lib::service::UsbGadgetService::new(&udc, || {
 				// setup usb0 (usb gadget)
-				let device = configfs::usb::Gadget::create("0", "Nathan Rossi", "Pi Zero Camera")?;
+				let device = configfs::usb::Gadget::create("0", "Nathan Rossi", "Pi Zero")?;
 
 				let serial = device.add_function("acm", "GS0")?;
 				let network = device.add_function("eem", "usb0")?;
@@ -88,10 +88,10 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 	manager.add_service(&rt, SSHService::default(), true);
 
 	// mjpeg streaming of camera
-	manager.add_service(&rt, ProcessService::new("/usr/bin/mjpg_streamer", &[
+	// manager.add_service(&rt, ProcessService::new("/usr/bin/mjpg_streamer", &[
 			// "-i", "/usr/lib/mjpg-streamer/input_raspicam.so -x 1296 -y 972 -fps 15 -ISO 50 -quality 90",
-			"-i", "/usr/lib/mjpg-streamer/input_uvc.so -resolution 1296x972 -fps 15 -d /dev/video0",
-			"-o", "/usr/lib/mjpg-streamer/output_http.so -p 80"]), true);
+			// "-i", "/usr/lib/mjpg-streamer/input_uvc.so -resolution 1296x972 -fps 15 -d /dev/video0",
+			// "-o", "/usr/lib/mjpg-streamer/output_http.so -p 80"]), true);
 
 	return rt.poll(&mut manager);
 }
