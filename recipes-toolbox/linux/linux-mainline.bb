@@ -143,6 +143,8 @@ python do_generate_config_append_rpi () {
         append(f, "USB_SERIAL_WWAN", "y")
         append(f, "USB_SERIAL_OPTION", "y")
         append(f, "USB_ACM", "y")
+
+    config("SPI_SPIDEV", "y")
 }
 
 python do_generate_config_append_qemuarm () {
