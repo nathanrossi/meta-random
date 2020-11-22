@@ -1,0 +1,76 @@
+/*
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/pinctrl/bcm2835.h>
+*/
+#include "bcm2835-rpi-zero.dts"
+
+/*
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&gpio>;
+		__overlay__ {
+	*/
+		&gpio {
+			// override the default pinctrl-0
+			pinctrl-0 = <&spi1_gpio16>;
+
+			spi1_gpio16: spi1_gpio16 {
+				brcm,pins = <16 17 18>;
+				/* the bcm aux spi driver is not setup to handle CS pins, setup as gpios instead */
+				brcm,function = <BCM2835_FSEL_GPIO_OUT>;
+			};
+			spi1_gpio_data: spi1_gpio_data {
+				brcm,pins = <19 20 21>;
+				brcm,function = <BCM2835_FSEL_ALT4>;
+			};
+		};
+/*
+	};
+
+	fragment@1 {
+		target = <&spi1>;
+		frag1: __overlay__ {
+*/
+&spi1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&spi1_gpio_data>;
+			cs-gpios = <&gpio 18 1>, <&gpio 17 1>, <&gpio 16 1>;
+			status = "okay";
+
+			spidev0: spidev@0 {
+				compatible = "ge,achc"; /* avoid the need to patch the kernel, abuse the spidev compatible set */
+				reg = <0>; /* CE0 */
+				#address-cells = <1>;
+				#size-cells = <0>;
+				spi-max-frequency = <125000000>;
+				status = "okay";
+			};
+
+			spidev1: spidev@1 {
+				compatible = "ge,achc";
+				reg = <1>; /* CE1 */
+				#address-cells = <1>;
+				#size-cells = <0>;
+				spi-max-frequency = <125000000>;
+				status = "okay";
+			};
+
+			spidev2: spidev@2 {
+				compatible = "ge,achc";
+				reg = <2>; /* CE2 */
+				#address-cells = <1>;
+				#size-cells = <0>;
+				spi-max-frequency = <125000000>;
+				status = "okay";
+			};
+		};
+/*
+	};
+};
+*/
