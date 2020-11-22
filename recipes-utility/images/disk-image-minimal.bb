@@ -44,3 +44,29 @@ python do_generate_deployables_append_rpi() {
         f.write("initramfs initramfs.gz followkernel\n")
 }
 
+python do_generate_boot_tarball() {
+    args = ["tar", "-czhf", d.expand("${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.boot.tar.gz")]
+    import glob
+    for i in d.getVar("IMAGE_BOOT_FILES").split():
+        parts = i.split(";", 1)
+        abspath = os.path.abspath(os.path.join(d.getVar("DEPLOY_DIR_IMAGE"), parts[0]))
+        for g in glob.glob(abspath):
+            src = os.path.relpath(g, d.getVar("TMPDIR"))
+            dst = os.path.basename(g) if len(parts) == 1 else parts[1]
+            args.append("--transform=s#{}#{}#".format(src, dst))
+            args.append(src)
+
+    import subprocess
+    subprocess.run(args, check = True, cwd = d.getVar("TMPDIR"), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    # symlink newest
+    target = d.expand("${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.boot.tar.gz")
+    symlink = d.expand("${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}.boot.tar.gz")
+    if os.path.exists(target):
+        if os.path.islink(symlink):
+            os.remove(symlink)
+        os.symlink(target, symlink)
+    else:
+        bb.note("Skipping symlink, source does not exist: {} -> {}".format(symlink, target))
+}
+addtask generate_boot_tarball before do_image_wic after do_generate_deployables
