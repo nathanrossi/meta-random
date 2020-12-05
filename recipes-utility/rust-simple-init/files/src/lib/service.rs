@@ -5,6 +5,7 @@ use super::runtime::{Service, ServiceState, ServiceContext, Runtime};
 enum ProcessState
 {
 	Stopped,
+	Waiting,
 	Running(Child),
 	Completed,
 }
@@ -14,6 +15,7 @@ pub struct ProcessService
 	command : Command,
 	state : ProcessState,
 	oneshot : bool,
+	devices : Vec<String>,
 }
 
 impl ProcessService
@@ -22,14 +24,53 @@ impl ProcessService
 	{
 		let mut command = Command::new(executable);
 		command.args(args);
-		return Self { command : command, state : ProcessState::Stopped, oneshot : false };
+		return Self { command : command, state : ProcessState::Stopped, oneshot : false, devices : Vec::new() };
 	}
 
 	pub fn oneshot(executable : &str, args : &[&str]) -> Self
 	{
 		let mut command = Command::new(executable);
 		command.args(args);
-		return Self { command : command, state : ProcessState::Stopped, oneshot : true };
+		return Self { command : command, state : ProcessState::Stopped, oneshot : true, devices : Vec::new() };
+	}
+
+	// TODO: make a "device rule" that can be stored and tested
+	pub fn add_device_dependency(&mut self, path : &str) -> &Self
+	{
+		self.devices.push(path.to_owned());
+		return self;
+	}
+
+	fn check_devices(&self) -> bool
+	{
+		for i in &self.devices {
+			let path = std::path::Path::new(&i);
+			if !path.exists() {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	fn check_state(&mut self, context : &mut ServiceContext)
+	{
+		if let ProcessState::Stopped = self.state {
+			if !self.devices.is_empty() {
+				self.state = ProcessState::Waiting;
+			}
+		}
+
+		if let ProcessState::Waiting = self.state {
+			if self.check_devices() {
+				return;
+			}
+		}
+
+		if let Ok(child) = self.command.spawn() {
+			println!("[process] starting {:?}", self.command);
+			context.register_child(&child);
+			self.state = ProcessState::Running(child);
+		}
 	}
 }
 
@@ -56,13 +97,7 @@ impl Service for ProcessService
 
 	fn start(&mut self, runtime : &Runtime, context : &mut ServiceContext)
 	{
-		if let ProcessState::Stopped = self.state {
-			if let Ok(child) = self.command.spawn() {
-				println!("[process] starting {:?}", self.command);
-				context.register_child(&child);
-				self.state = ProcessState::Running(child);
-			}
-		}
+		self.check_state(context);
 	}
 
 	fn stop(&mut self, runtime : &Runtime, context : &mut ServiceContext)
@@ -89,7 +124,10 @@ impl Service for ProcessService
 		}
 	}
 
-	fn device_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, event : &uevent::EventData) {}
+	fn device_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, event : &uevent::EventData)
+	{
+		self.check_state(context);
+	}
 }
 
 use std::io;

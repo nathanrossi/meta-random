@@ -10,6 +10,7 @@ pub enum Config
 	DHCP,
 	StaticIpv4(Ipv4Addr, u32, Option<Ipv4Addr>),
 	DHCPD(Ipv4Addr, Ipv4Addr),
+	WPASupplicant(String),
 }
 
 enum State
@@ -20,6 +21,7 @@ enum State
 	LinkStaticIpv4(Child),
 	LinkDHCP(Child),
 	LinkDHCPD(Child),
+	WPASupplicant(Child),
 }
 
 struct ConfigState
@@ -72,7 +74,7 @@ impl NetworkDeviceService
 						}
 					}
 				State::LinkSetup(_) => {
-						match c.config {
+						match &c.config {
 							Config::StaticIpv4(host, prefix, _) => {
 									let fmtaddr = format!("{}/{}", host, prefix);
 									if let Ok(child) = Command::new("/sbin/ip").args(&["addr", "add", &fmtaddr, "dev", &self.name]).spawn() {
@@ -86,6 +88,8 @@ impl NetworkDeviceService
 										println!("[net:{}] link dhcp", self.name);
 										context.register_child(&child);
 										c.state = State::LinkDHCP(child);
+									} else {
+										println!("[net:{}] failed to start udhcpc", self.name);
 									}
 								}
 							Config::DHCPD(start, end) => {
@@ -105,15 +109,43 @@ impl NetworkDeviceService
 											println!("[net:{}] link dhcp", self.name);
 											context.register_child(&child);
 											c.state = State::LinkDHCPD(child);
+										} else {
+											println!("[net:{}] failed to start udhcpd", self.name);
 										}
+									}
+								}
+							Config::WPASupplicant(path) => {
+									// copy config path to temporary location
+									let configpath = format!("/var/run/wpa.{}.conf", self.name);
+									println!("[net:{}] link wpa supplicant config path {}", self.name, configpath);
+									if std::path::Path::new(path).exists() {
+										if let Ok(_) = std::fs::copy(&path, &configpath) {
+											println!("[net:{}] using wpa config from {}", self.name, path);
+										}
+									} else {
+										println!("[net:{}] wpa config {} does not exist, creating empty config", self.name, path);
+										if let Ok(_) = std::fs::write(&configpath, "") {
+											println!("[net:{}] failed to created empty wpa config", self.name);
+										}
+									}
+
+									// start wpa_supplicant process on the interface
+									if let Ok(child) = Command::new("/usr/sbin/wpa_supplicant")
+											.args(&["-c", &configpath, "-i", &self.name]).spawn() {
+										println!("[net:{}] starting wpa supplicant", self.name);
+										context.register_child(&child);
+										c.state = State::WPASupplicant(child);
+									} else {
+										println!("[net:{}] failed to start wpa supplicant", self.name);
 									}
 								}
 							_ => {}
 						}
 					}
 				State::LinkStaticIpv4(_) => { c.state = State::Ready; }
-				State::LinkDHCP(_) => { c.state = State::Ready; }
-				State::LinkDHCPD(_) => { c.state = State::Ready; }
+				State::LinkDHCP(_) => { continue; }
+				State::LinkDHCPD(_) => { continue; }
+				State::WPASupplicant(_) => { continue; }
 				_ => {}
 			}
 		}

@@ -38,6 +38,8 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 		service.add("tmpfs", Some("tmpfs"), "/var/volatile", None);
 		// kernel debug
 		service.add("debugfs", None, "/sys/kernel/debug", None);
+		// mount /boot
+		service.add("auto", Some("/dev/mmcblk0p1"), "/boot", Some("ro"));
 
 		let instance = manager.add_service(&rt, service, true);
 		rt.poll_service_ready(&mut manager, &instance)?; // wait for service to complete
@@ -50,6 +52,9 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 
 	// modprobe camera driver
 	let modprobe = manager.add_service(&rt, ProcessService::oneshot("/sbin/modprobe", &["bcm2835-v4l2"]), true);
+	rt.poll_service_ready(&mut manager, &modprobe)?;
+	// modprobe wifi
+	let modprobe = manager.add_service(&rt, ProcessService::oneshot("/sbin/modprobe", &["brcmfmac"]), true);
 	rt.poll_service_ready(&mut manager, &modprobe)?;
 
 	println!("[init] usb device class");
@@ -83,15 +88,22 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 	eth0.add(network::Config::DHCP);
 	manager.add_service(&rt, eth0, true);
 
+	let mut wlan0 = NetworkDeviceService::new("wlan0");
+	wlan0.add(network::Config::WPASupplicant("/boot/wifi.conf".to_owned()));
+	wlan0.add(network::Config::DHCP);
+	manager.add_service(&rt, wlan0, true);
+
 	// services
 	manager.add_service(&rt, ProcessService::new("/usr/sbin/rngd", &["-r", "/dev/hwrng"]), true);
 	manager.add_service(&rt, SSHService::default(), true);
 
 	// mjpeg streaming of camera
-	// manager.add_service(&rt, ProcessService::new("/usr/bin/mjpg_streamer", &[
-			// "-i", "/usr/lib/mjpg-streamer/input_raspicam.so -x 1296 -y 972 -fps 15 -ISO 50 -quality 90",
-			// "-i", "/usr/lib/mjpg-streamer/input_uvc.so -resolution 1296x972 -fps 15 -d /dev/video0",
-			// "-o", "/usr/lib/mjpg-streamer/output_http.so -p 80"]), true);
+	let mut mjpg = ProcessService::new("/usr/bin/mjpg_streamer", &[
+			"-i", "/usr/lib/mjpg-streamer/input_raspicam.so -x 1296 -y 972 -fps 15 -ISO 50 -quality 90",
+			"-i", "/usr/lib/mjpg-streamer/input_uvc.so -resolution 1296x972 -fps 15 -d /dev/video0",
+			"-o", "/usr/lib/mjpg-streamer/output_http.so -p 80"]);
+	mjpg.add_device_dependency("/dev/video0"); // don't start until /dev/video0 is available
+	manager.add_service(&rt, mjpg, true);
 
 	return rt.poll(&mut manager);
 }

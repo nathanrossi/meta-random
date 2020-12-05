@@ -82,4 +82,5 @@ INSANE_SKIP_${PN} += "ldflags"
 
 INHIBIT_PACKAGE_STRIP = "1"
 
+RDEPENDS_${PN} += "wpa-supplicant"
 RDEPENDS_${PN} += "mjpg-streamer"
