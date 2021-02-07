@@ -1,7 +1,8 @@
-use std::process::{Command, Child, ExitStatus};
-use super::*;
-use super::procfs;
-use super::runtime::{Service, ServiceState, ServiceContext, Runtime};
+use std::process::{Child};
+use super::super::*;
+use procfs;
+use service::{Service, ServiceEvent, ServiceState};
+use runtime::Runtime;
 
 enum State
 {
@@ -43,11 +44,11 @@ impl MountSetup
 			});
 	}
 
-	fn mount(&self, runtime : &Runtime, context : &mut ServiceContext, mount : &MountEntry) -> std::io::Result<Option<Child>>
+	fn mount(&self, runtime : &mut Runtime, mount : &MountEntry) -> std::io::Result<Option<Child>>
 	{
 		// check if already mounted
 		if procfs::mounted(&mount.point, mount.device.as_deref(), Some(&mount.fstype)) {
-			println!("[mount:{}] skipping, already mounted", mount.point);
+			runtime.logger.service_log("mount", &format!("{} skipping, already mounted", mount.point));
 			return Ok(None);
 		}
 
@@ -73,12 +74,11 @@ impl MountSetup
 		}
 
 		let child = command.spawn()?;
-		println!("[mount:{}] mounting", mount.point);
-		context.register_child(&child);
+		runtime.logger.service_log("mount", &format!("{} mounting", mount.point));
 		return Ok(Some(child));
 	}
 
-	fn check(&mut self, runtime : &Runtime, context : &mut ServiceContext)
+	fn check(&mut self, runtime : &mut Runtime)
 	{
 		loop {
 			let index = match self.state {
@@ -93,7 +93,7 @@ impl MountSetup
 			}
 
 			let entry = &self.mounts[index];
-			if let Ok(c) = self.mount(runtime, context, &entry) {
+			if let Ok(c) = self.mount(runtime, &entry) {
 				if let Some(child) = c {
 					self.state = State::Waiting(Some(child), index);
 				} else {
@@ -110,7 +110,7 @@ impl MountSetup
 
 impl Service for MountSetup
 {
-	fn setup(&mut self, runtime : &Runtime, context : &mut ServiceContext)
+	fn setup(&mut self, _runtime : &mut Runtime)
 	{
 	}
 
@@ -126,49 +126,55 @@ impl Service for MountSetup
 		return ServiceState::Inactive;
 	}
 
-	fn start(&mut self, runtime : &Runtime, context : &mut ServiceContext)
+	fn start(&mut self, runtime : &mut Runtime)
 	{
 		if let State::None = self.state {
 			if self.mounts.len() > 0 {
 				self.state = State::Start;
-				self.check(runtime, context);
+				self.check(runtime);
 			}
 		}
 	}
 
-	fn stop(&mut self, runtime : &Runtime, context : &mut ServiceContext)
+	fn stop(&mut self, _runtime : &mut Runtime)
 	{
 		// TODO: unmount?
 		// self.state = State::None;
 	}
 
-	fn process_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, pid : nix::unistd::Pid, status : std::process::ExitStatus)
+	fn event(&mut self, runtime : &mut Runtime, event : ServiceEvent) -> bool
 	{
-		// TODO: actually check pid
-		if let State::Waiting(_, index) = self.state {
-			if status.success() {
-				self.check(runtime, context);
-			} else {
-				self.state = State::Error; // TODO: allow some mounts to fail?
-				println!("[mount:{}] failed to mount (err = {})", self.mounts[index].point, status);
+		if let ServiceEvent::ProcessExited(pid, status) = event {
+			if let State::Waiting(child, index) = &self.state {
+				if let Some(child) = child {
+					if child.id() != pid {
+						return false;
+					}
+				}
+				if status.success() {
+					self.check(runtime);
+				} else {
+					runtime.logger.service_log("mount", &format!("{}, failed to mount (err = {})", self.mounts[*index].point, status));
+					self.state = State::Error; // TODO: allow some mounts to fail?
+				}
 			}
+			return true;
 		}
+		return false;
 	}
-
-	fn device_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, event : &uevent::EventData) {}
 }
 
 #[cfg(test)]
 mod tests
 {
 	use super::*;
-	use super::runtime::ServiceManager;
+	use service::ServiceManager;
 
 	#[test]
 	fn configure()
 	{
 		let mut manager = ServiceManager::new();
-		let mut rt = Runtime::new().unwrap();
+		let mut rt = Runtime::new_default_logger().unwrap();
 		let mut service = MountSetup::new();
 
 		// device nodes
@@ -183,7 +189,7 @@ mod tests
 		// kernel debug
 		service.add("debugfs", None, "/sys/kernel/debug", None);
 
-		manager.add_service(&rt, service,  false);
+		manager.add_service(&mut rt, service,  false);
 
 		// TODO: cannot really do emulation of devices for integration testing
 		// rt.poll(&mut manager);

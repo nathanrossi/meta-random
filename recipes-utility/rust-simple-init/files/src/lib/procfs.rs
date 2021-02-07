@@ -63,11 +63,13 @@ impl<R: Read> Iterator for MountIter<R>
 	}
 }
 
+#[allow(dead_code)]
 pub fn mounts() -> io::Result<MountIter<std::fs::File>>
 {
 	return Ok(MountIter { file : BufReader::new(std::fs::File::open("/proc/self/mounts")?) });
 }
 
+#[allow(dead_code)]
 pub fn mounts_from_string(data : &str) -> MountIter<&[u8]>
 {
 	return MountIter { file : BufReader::new(data.as_bytes()) };
@@ -99,7 +101,6 @@ pub fn mounted(point : &str, device : Option<&str>, fstype : Option<&str>) -> bo
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use std::option::Option;
 
 	#[test]
 	fn iterates()

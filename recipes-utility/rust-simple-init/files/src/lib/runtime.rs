@@ -1,183 +1,26 @@
 use super::*;
-use std::rc::Rc;
-use std::cell::RefCell;
 use std::os::unix::io::AsRawFd;
 use std::os::unix::io::RawFd;
 use nix::sys::signal::{Signal, SigSet, SigmaskHow};
 use nix::sys::signalfd::{SignalFd, SfdFlags};
-use nix::unistd::Pid;
+use service::{ServiceRef, ServiceManager, ServiceState};
+use logging::Logger;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-#[derive(Debug)]
-#[derive(PartialEq)]
-pub enum ServiceState
+pub struct Runtime<'a>
 {
-	Unknown,
-	Inactive,
-	Starting,
-	Running,
-	Completed,
-	Error,
-}
-
-pub trait Service
-{
-	fn setup(&mut self, runtime : &Runtime, context : &mut ServiceContext);
-	fn state(&self) -> ServiceState;
-	fn start(&mut self, runtime : &Runtime, context : &mut ServiceContext);
-	fn stop(&mut self, runtime : &Runtime, context : &mut ServiceContext);
-
-	fn process_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, pid : Pid, status : std::process::ExitStatus);
-	fn device_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, event : &uevent::EventData);
-}
-
-pub struct ServiceContext
-{
-	processes : Vec<Pid>,
-	uevent_subsystems : Vec<String>,
-	fds : Vec<RawFd>,
-}
-
-impl ServiceContext
-{
-	pub fn new() -> Self
-	{
-		return Self {
-				processes : Vec::new(),
-				uevent_subsystems : Vec::new(),
-				fds : Vec::new(),
-			};
-	}
-
-	pub fn register_child(&mut self, child : &std::process::Child)
-	{
-		self.processes.push(Pid::from_raw(child.id() as i32));
-	}
-
-	pub fn register_device_subsystem(&mut self, subsystem : &str)
-	{
-		self.uevent_subsystems.push(subsystem.to_owned());
-	}
-}
-
-pub struct ServiceInstance<'a>
-{
-	service : Box<dyn Service + 'a>,
-	context : ServiceContext,
-}
-
-impl<'a> ServiceInstance<'a>
-{
-	pub fn new(service : impl Service + 'a) -> Self
-	{
-		return Self {
-				service : Box::new(service),
-				context : ServiceContext::new(),
-			};
-	}
-
-	pub fn setup(&mut self, runtime : &Runtime)
-	{
-		self.service.setup(runtime, &mut self.context);
-	}
-
-	pub fn state(&self) -> ServiceState
-	{
-		return self.service.state();
-	}
-
-	pub fn start(&mut self, runtime : &Runtime)
-	{
-		self.service.start(runtime, &mut self.context);
-	}
-
-	pub fn stop(&mut self, runtime : &Runtime)
-	{
-		self.service.stop(runtime, &mut self.context);
-	}
-
-	pub fn process_event(&mut self, runtime : &Runtime, pid : Pid, status : std::process::ExitStatus) -> bool
-	{
-		for p in self.context.processes.iter() {
-			if pid == *p {
-				self.service.process_event(runtime, &mut self.context, pid, status);
-				return true;
-			}
-		}
-		return false;
-	}
-
-	pub fn device_event(&mut self, runtime : &Runtime, event : &uevent::EventData) -> bool
-	{
-		if let Some(subsystem) = event.properties.get("SUBSYSTEM") {
-			for name in self.context.uevent_subsystems.iter() {
-				if name == subsystem {
-					self.service.device_event(runtime, &mut self.context, event);
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-}
-
-pub struct ServiceManager<'a>
-{
-	services : Vec<Rc<RefCell<ServiceInstance<'a>>>>,
-}
-
-impl<'a> ServiceManager<'a>
-{
-	pub fn new() -> Self
-	{
-		return Self { services : Vec::new() };
-	}
-
-	pub fn add_service(&mut self, runtime : &Runtime, service : impl Service + 'a, enabled : bool) -> Rc<RefCell<ServiceInstance<'a>>>
-	{
-		let instance = Rc::new(RefCell::new(ServiceInstance::new(service)));
-		instance.borrow_mut().setup(runtime);
-		if enabled {
-			instance.borrow_mut().start(runtime);
-		}
-		self.services.push(instance.clone());
-		return instance;
-	}
-
-	pub fn process_event(&mut self, runtime : &Runtime, pid : Pid, status : std::process::ExitStatus) -> bool
-	{
-		for service in self.services.iter_mut() {
-			if service.borrow_mut().process_event(runtime, pid, status) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	pub fn device_event(&mut self, runtime : &Runtime, event : &uevent::EventData) -> bool
-	{
-		let mut handled = false;
-		for service in self.services.iter_mut() {
-			if service.borrow_mut().device_event(runtime, event) {
-				handled = true;
-			}
-		}
-		return handled;
-	}
-}
-
-pub struct Runtime
-{
+	pub logger : Logger<'a>,
 	poll : mio::Poll,
 	signalfd : SignalFd,
 	uevent : uevent::Socket,
 	fds : Vec<(usize, RawFd)>,
 }
 
-impl Runtime
+#[allow(dead_code)]
+impl<'a> Runtime<'a>
 {
-	pub fn new() -> Result<Self>
+	pub fn new(logger : Logger<'a>) -> Result<Self>
 	{
 		let poll = mio::Poll::new()?;
 
@@ -191,35 +34,55 @@ impl Runtime
 		poll.register(&mut mio::unix::EventedFd(&socket.as_raw_fd()), mio::Token(1), mio::Ready::readable(), mio::PollOpt::edge())?;
 
 		return Ok(Runtime {
+				logger : logger,
 				poll : poll,
 				signalfd : sigfd,
 				uevent : socket,
-				// ueventcallbacks : Vec::new(),
 				fds : Vec::new(),
 			});
 	}
 
-	fn get_unused_token(&self) -> usize
+	pub fn new_default_logger() -> Result<Self>
 	{
-		// return first available token
-		if self.fds.len() == 0 {
-			return 1;
-		}
+		let mut logger = Logger::new();
+		logger.add(std::io::stdout());
+		return Runtime::new(logger);
+	}
 
-		let mut last = 10;
+	pub fn new_test_logger(name : &str) -> Result<Self>
+	{
+		let mut logger = Logger::new();
+		logger.prefix = Some(name.to_owned());
+		logger.add(std::io::stdout());
+		return Runtime::new(logger);
+	}
+
+	fn get_unused_token(&mut self) -> usize
+	{
+		let mut last : usize = 1;
 		for (token, _) in self.fds.iter() {
-			if (token - last) > 1 {
-				return last + 1
+			if *token > last {
+				last = *token;
 			}
-			last = *token;
 		}
 		return last + 1;
 	}
 
-	pub fn register(&mut self, fd : RawFd, read : bool, write : bool) -> Result<()>
+	fn get_fd_from_token(&self, token : usize) -> Option<RawFd>
 	{
+		for (etoken, efd) in self.fds.iter() {
+			if *etoken == token {
+				return Some(*efd);
+			}
+		}
+		return None;
+	}
+
+	pub fn register<F: AsRawFd>(&mut self, fd : &F, read : bool, write : bool) -> Result<()>
+	{
+		let rfd = fd.as_raw_fd();
 		let token = self.get_unused_token();
-		self.fds.push((token, fd));
+		self.fds.push((token, rfd));
 
 		let mut ready = mio::Ready::empty();
 		if read {
@@ -228,7 +91,7 @@ impl Runtime
 		if write {
 			ready.insert(mio::Ready::writable());
 		}
-		self.poll.register(&mut mio::unix::EventedFd(&fd), mio::Token(token), ready, mio::PollOpt::edge())?;
+		self.poll.register(&mut mio::unix::EventedFd(&rfd), mio::Token(token), ready, mio::PollOpt::edge())?;
 		return Ok(());
 	}
 
@@ -262,7 +125,7 @@ impl Runtime
 		}
 	}
 
-	pub fn poll_service_ready<'a>(&mut self, manager : &mut ServiceManager, service : &Rc<RefCell<ServiceInstance<'a>>>) -> Result<()>
+	pub fn poll_service_ready<'s>(&mut self, manager : &mut ServiceManager, service : &ServiceRef<'s>) -> Result<()>
 	{
 		loop {
 			match service.borrow().state() {
@@ -277,9 +140,11 @@ impl Runtime
 
 	fn handle_event(&mut self, manager : &mut ServiceManager, event : mio::Event) -> Result<bool>
 	{
-		if event.token() == mio::Token(0) {
+		let tokenid = usize::from(event.token());
+		if tokenid == 0 {
 			// signal
-			if let Some(_) = self.signalfd.read_signal()? {
+			let signal = self.signalfd.read_signal()?;
+			if let Some(_) = signal {
 				let mut handled = false;
 				// loop through any waiting child processes
 				loop {
@@ -291,7 +156,7 @@ impl Runtime
 				}
 				return Ok(handled);
 			}
-		} else if event.token() == mio::Token(1) {
+		} else if tokenid == 1 {
 			let message = self.uevent.read()?;
 			if let Some(eventdata) = message {
 				// println!("[uevent] got event");
@@ -303,13 +168,8 @@ impl Runtime
 					return Ok(true);
 				}
 			}
-		} else if event.token() >= mio::Token(10) {
-			for (token, fd) in self.fds.iter() {
-				if event.token() == mio::Token(*token) {
-					// callback(&self, *fd);
-					return Ok(true);
-				}
-			}
+		} else if let Some(fd) = self.get_fd_from_token(tokenid) {
+			return Ok(manager.fd_event(self, fd));
 		}
 		return Ok(false);
 	}
@@ -366,179 +226,200 @@ impl Runtime
 mod tests
 {
 	use super::*;
-	use std::os::unix::io::AsRawFd;
+	use super::super::service::{Service, ServiceEvent};
+
+	macro_rules! test_name {
+		() => {{
+			fn f() {}
+			fn type_name_of<T>(_: T) -> &'static str {
+				std::any::type_name::<T>()
+			}
+			let name = type_name_of(f);
+			&name[..name.len() - 3]
+		}}
+	}
+
+	struct TestProcessService
+	{
+		flag : std::rc::Rc<std::sync::atomic::AtomicUsize>,
+		child : Option<std::process::Child>,
+	}
+
+	impl Service for TestProcessService
+	{
+		fn setup(&mut self, runtime : &mut Runtime)
+		{
+			runtime.logger.log("setup child");
+			let child = std::process::Command::new("echo")
+				.stdout(std::process::Stdio::null())
+				.stderr(std::process::Stdio::null())
+				.spawn().unwrap();
+			runtime.logger.log("spawn child");
+			runtime.logger.log(&format!("pid = {}", child.id()));
+			self.child = Some(child);
+		}
+
+		fn state(&self) -> ServiceState
+		{
+			if let Some(_) = self.child {
+				if self.flag.load(std::sync::atomic::Ordering::Relaxed) >= 1 {
+					return ServiceState::Completed;
+				}
+				return ServiceState::Starting;
+			}
+			return ServiceState::Inactive;
+		}
+		fn start(&mut self, _runtime : &mut Runtime) {}
+		fn stop(&mut self, _runtime : &mut Runtime) {}
+
+		fn event(&mut self, runtime : &mut Runtime, event : ServiceEvent) -> bool
+		{
+			if let ServiceEvent::ProcessExited(pid, _) = event {
+				if let Some(child) = &self.child {
+					if child.id() == pid {
+						runtime.logger.log("correct child completed");
+						self.flag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+	}
+
+	// NOTE: The following tests rely on signalfd and sigprocmask such that the SIGCHLD need to be
+	// delivered to the currently running process. Because of this running the tests in multiple
+	// threads is problematic.
 
 	#[test]
 	fn runtime_process()
 	{
 		let mut manager = ServiceManager::new();
-		let mut rt = Runtime::new().unwrap();
+		let mut rt = Runtime::new_test_logger(test_name!()).unwrap();
 		let flag = std::rc::Rc::new(std::sync::atomic::AtomicUsize::new(0));
 
-		struct TestService
-		{
-			flag : std::rc::Rc<std::sync::atomic::AtomicUsize>,
-			child : Option<std::process::Child>,
-		}
+		let service = TestProcessService { flag : flag.clone(), child : None };
+		rt.logger.log("starting service");
 
-		impl Service for TestService
-		{
-			fn setup(&mut self, runtime : &Runtime, context : &mut ServiceContext)
-			{
-				println!("setup child");
-				let child = std::process::Command::new("echo").spawn().unwrap();
-				println!("spawn child");
-				context.register_child(&child);
-				self.child = Some(child);
-			}
-
-			fn state(&self) -> ServiceState { return ServiceState::Unknown; }
-			fn start(&mut self, runtime : &Runtime, context : &mut ServiceContext) {}
-			fn stop(&mut self, runtime : &Runtime, context : &mut ServiceContext) {}
-
-			fn process_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, pid : Pid, status : std::process::ExitStatus)
-			{
-				if let Some(child) = &self.child {
-					if pid == Pid::from_raw(child.id() as i32) {
-						println!("correct child completed");
-						self.flag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-					}
-				}
-			}
-
-			fn device_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, event : &uevent::EventData) {}
-		}
-
-		let service = TestService { flag : flag.clone(), child : None };
-		println!("starting service");
-
-		manager.add_service(&rt, service, false);
+		manager.add_service(&mut rt, service, false);
 		rt.poll_once(&mut manager).unwrap();
 
 		assert_eq!(flag.load(std::sync::atomic::Ordering::Relaxed), 1);
-	}
-
-	/*
-	#[test]
-	fn runtime_fd()
-	{
-		let flag = std::sync::atomic::AtomicUsize::new(0);
-		let mut rt = Runtime::new().unwrap();
-
-		let (pipeout, pipein) = nix::unistd::pipe2(nix::fcntl::OFlag::O_NONBLOCK).unwrap();
-
-		rt.register(pipeout, true, false, |_, _| {
-				flag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-			}).unwrap();
-
-		nix::unistd::write(pipein, &[0x0, 0x0]).unwrap();
-
-		rt.poll_once().unwrap();
-		assert_eq!(flag.load(std::sync::atomic::Ordering::Relaxed), 1);
-	}
-	*/
-
-	#[test]
-	fn runtime_device_event()
-	{
-		let mut manager = ServiceManager::new();
-		let mut rt = Runtime::new().unwrap();
-		let flag = std::rc::Rc::new(std::sync::atomic::AtomicUsize::new(0));
-
-		struct TestService
-		{
-			flag : std::rc::Rc<std::sync::atomic::AtomicUsize>,
-		}
-
-		impl Service for TestService
-		{
-			fn setup(&mut self, runtime : &Runtime, context : &mut ServiceContext)
-			{
-				println!("setup device event");
-				context.register_device_subsystem("tty");
-			}
-
-			fn state(&self) -> ServiceState { return ServiceState::Unknown; }
-			fn start(&mut self, runtime : &Runtime, context : &mut ServiceContext) {}
-			fn stop(&mut self, runtime : &Runtime, context : &mut ServiceContext) {}
-
-			fn process_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, pid : Pid, status : std::process::ExitStatus) {}
-
-			fn device_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, event : &uevent::EventData)
-			{
-				println!("got uevent data");
-				self.flag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-			}
-		}
-
-		let service = TestService { flag : flag.clone() };
-		println!("starting service");
-
-		manager.add_service(&rt, service, false);
-
-		// TODO: Cannot generate mock uevent data currently.
-		// rt.poll_once(&mut manager).unwrap();
-
-		// assert_eq!(flag.load(std::sync::atomic::Ordering::Relaxed), 1);
 	}
 
 	#[test]
 	fn runtime_service_poll_ready()
 	{
 		let mut manager = ServiceManager::new();
-		let mut rt = Runtime::new().unwrap();
+		let mut rt = Runtime::new_test_logger(test_name!()).unwrap();
+		let flag = std::rc::Rc::new(std::sync::atomic::AtomicUsize::new(0));
+
+		let service = TestProcessService { flag : flag.clone(), child : None };
+		rt.logger.log("starting service");
+
+		let service = manager.add_service(&mut rt, service, false);
+
+		rt.logger.log("waiting for service");
+		rt.poll_service_ready(&mut manager, &service).unwrap();
+	}
+
+	#[test]
+	fn runtime_fd()
+	{
+		let flag = std::rc::Rc::new(std::sync::atomic::AtomicUsize::new(0));
+		let mut manager = ServiceManager::new();
+		let mut rt = Runtime::new_test_logger(test_name!()).unwrap();
+
+		struct TestService
+		{
+			flag : std::rc::Rc<std::sync::atomic::AtomicUsize>,
+			fd : RawFd,
+		}
+
+		impl Service for TestService
+		{
+			fn setup(&mut self, runtime : &mut Runtime)
+			{
+				runtime.register(&self.fd, true, false).unwrap();
+			}
+
+			fn state(&self) -> ServiceState { return ServiceState::Unknown; }
+			fn start(&mut self, _runtime : &mut Runtime) {}
+			fn stop(&mut self, _runtime : &mut Runtime) {}
+
+			fn event(&mut self, runtime : &mut Runtime, event : ServiceEvent) -> bool
+			{
+				runtime.logger.log(&format!("got event, {:?}", event));
+				if let ServiceEvent::Fd(efd) = event {
+					runtime.logger.log(&format!("got fd event, fd = {}", efd));
+					if efd == self.fd {
+						runtime.logger.log("correct fd event");
+						self.flag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+						return true;
+					}
+				}
+				return false;
+			}
+		}
+
+		rt.logger.log("setup pipe");
+		let (pipeout, pipein) = nix::unistd::pipe2(nix::fcntl::OFlag::O_NONBLOCK).unwrap();
+
+		let service = TestService { flag : flag.clone(), fd : pipeout };
+		rt.logger.log("starting service");
+		manager.add_service(&mut rt, service, false);
+
+		rt.logger.log("send data to pipe");
+		nix::unistd::write(pipein, &[0x0, 0x0]).unwrap();
+
+		rt.logger.log("poll_once");
+		rt.poll_once(&mut manager).unwrap();
+		assert_eq!(flag.load(std::sync::atomic::Ordering::Relaxed), 1);
+	}
+
+	#[test]
+	fn runtime_device_event()
+	{
+		let mut manager = ServiceManager::new();
+		let mut rt = Runtime::new_test_logger(test_name!()).unwrap();
 		let flag = std::rc::Rc::new(std::sync::atomic::AtomicUsize::new(0));
 
 		struct TestService
 		{
 			flag : std::rc::Rc<std::sync::atomic::AtomicUsize>,
-			child : Option<std::process::Child>,
 		}
 
 		impl Service for TestService
 		{
-			fn setup(&mut self, runtime : &Runtime, context : &mut ServiceContext)
+			fn setup(&mut self, runtime : &mut Runtime)
 			{
-				println!("setup child");
-				let child = std::process::Command::new("echo").spawn().unwrap();
-				println!("spawn child");
-				context.register_child(&child);
-				self.child = Some(child);
+				runtime.logger.log("setup device event");
 			}
 
-			fn state(&self) -> ServiceState
+			fn state(&self) -> ServiceState { return ServiceState::Unknown; }
+			fn start(&mut self, _runtime : &mut Runtime) {}
+			fn stop(&mut self, _runtime : &mut Runtime) {}
+
+			fn event(&mut self, runtime : &mut Runtime, event : ServiceEvent) -> bool
 			{
-				if let Some(_) = self.child {
-					if self.flag.load(std::sync::atomic::Ordering::Relaxed) >= 1 {
-						return ServiceState::Completed;
-					}
-					return ServiceState::Starting;
+				if let ServiceEvent::Device(_) = event {
+					runtime.logger.log("got uevent data");
+					self.flag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+					return true;
 				}
-				return ServiceState::Inactive;
+				return false;
 			}
-			fn start(&mut self, runtime : &Runtime, context : &mut ServiceContext) {}
-			fn stop(&mut self, runtime : &Runtime, context : &mut ServiceContext) {}
-
-			fn process_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, pid : Pid, status : std::process::ExitStatus)
-			{
-				if let Some(child) = &self.child {
-					if pid == Pid::from_raw(child.id() as i32) {
-						println!("correct child completed");
-						self.flag.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-					}
-				}
-			}
-
-			fn device_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, event : &uevent::EventData) {}
 		}
 
-		let service = TestService { flag : flag.clone(), child : None };
-		println!("starting service");
+		let service = TestService { flag : flag.clone() };
+		rt.logger.log("starting service");
 
-		let service = manager.add_service(&rt, service, false);
+		manager.add_service(&mut rt, service, false);
 
-		println!("waiting for service");
-		rt.poll_service_ready(&mut manager, &service).unwrap();
+		// TODO: Cannot generate mock uevent data currently.
+		// rt.poll_once(&mut manager).unwrap();
+
+		// assert_eq!(flag.load(std::sync::atomic::Ordering::Relaxed), 1);
 	}
 }
 

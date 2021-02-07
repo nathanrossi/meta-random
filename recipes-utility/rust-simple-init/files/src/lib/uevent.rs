@@ -7,8 +7,10 @@ use nix::sys::socket::{socket, bind, recvfrom, AddressFamily, SockType, SockAddr
 use nix::sys::socket::SockFlag;
 use nix::sys::socket::SockProtocol;
 
+#[allow(dead_code)]
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+#[allow(dead_code)]
 pub fn netlink_add_group(fd : std::os::unix::io::RawFd, group : i32) -> Result<()>
 {
 	let val : libc::c_int = group;
@@ -23,6 +25,7 @@ pub fn netlink_add_group(fd : std::os::unix::io::RawFd, group : i32) -> Result<(
 	return Ok(());
 }
 
+#[derive(Debug)]
 pub struct EventData
 {
 	pub udev : bool,
@@ -89,6 +92,7 @@ pub struct Socket
 	fd : RawFd,
 }
 
+#[allow(dead_code)]
 impl Socket
 {
 	pub fn open() -> nix::Result<Socket>

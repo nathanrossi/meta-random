@@ -1,12 +1,12 @@
 use std::path::Path;
 use std::net::Ipv4Addr;
 use std::process::{Command, Child};
-use super::*;
-use super::runtime::{Service, ServiceState, ServiceContext, Runtime};
+use super::super::*;
+use service::{Service, ServiceEvent, ServiceState};
+use runtime::Runtime;
 
 pub enum Config
 {
-	None,
 	DHCP,
 	StaticIpv4(Ipv4Addr, u32, Option<Ipv4Addr>),
 	DHCPD(Ipv4Addr, Ipv4Addr),
@@ -61,15 +61,14 @@ impl NetworkDeviceService
 		return NetworkDeviceService::iface_available(&self.name);
 	}
 
-	fn startup_step(&mut self, runtime : &Runtime, context : &mut ServiceContext)
+	fn startup_step(&mut self, runtime : &mut Runtime)
 	{
 		for c in &mut self.configs {
 			match c.state {
 				State::Ready => { continue; } // this state is done, move to next
 				State::None => {
 						if let Ok(child) = Command::new("/sbin/ip").args(&["link", "set", "dev", &self.name, "up"]).spawn() {
-							println!("[net:{}] link bringup", self.name);
-							context.register_child(&child);
+							runtime.logger.service_log(&format!("net:{}", self.name), "link bringup");
 							c.state = State::LinkSetup(child);
 						}
 					}
@@ -78,24 +77,22 @@ impl NetworkDeviceService
 							Config::StaticIpv4(host, prefix, _) => {
 									let fmtaddr = format!("{}/{}", host, prefix);
 									if let Ok(child) = Command::new("/sbin/ip").args(&["addr", "add", &fmtaddr, "dev", &self.name]).spawn() {
-										println!("[net:{}] link addr static setup", self.name);
-										context.register_child(&child);
+										runtime.logger.service_log(&format!("net:{}", self.name), "link addr static setup");
 										c.state = State::LinkStaticIpv4(child);
 									}
 								}
 							Config::DHCP => {
 									if let Ok(child) = Command::new("/sbin/udhcpc").args(&["-f", "-i", &self.name]).spawn() {
-										println!("[net:{}] link dhcp", self.name);
-										context.register_child(&child);
+										runtime.logger.service_log(&format!("net:{}", self.name), "link dhcp");
 										c.state = State::LinkDHCP(child);
 									} else {
-										println!("[net:{}] failed to start udhcpc", self.name);
+										runtime.logger.service_log(&format!("net:{}", self.name), "failed to start udhcpc");
 									}
 								}
 							Config::DHCPD(start, end) => {
 									// create config
 									let configpath = format!("/var/run/dhcp.{}.conf", self.name);
-									println!("[net:{}] link dhcpd config path {}", self.name, configpath);
+									runtime.logger.service_log(&format!("net:{}", self.name), &format!("link dhcpd config path {}", configpath));
 									if let Ok(_) = std::fs::write(&configpath, [
 											&format!("start {}", start),
 											&format!("end {}", end),
@@ -104,49 +101,44 @@ impl NetworkDeviceService
 											"option subnet 255.255.255.252",
 											"option lease 3600",
 											].join("\n")) {
-										println!("[net:{}] link dhcpd", self.name);
 										if let Ok(child) = Command::new("/usr/sbin/udhcpd").arg(configpath).spawn() {
-											println!("[net:{}] link dhcp", self.name);
-											context.register_child(&child);
+											runtime.logger.service_log(&format!("net:{}", self.name), "link dhcpd");
 											c.state = State::LinkDHCPD(child);
 										} else {
-											println!("[net:{}] failed to start udhcpd", self.name);
+											runtime.logger.service_log(&format!("net:{}", self.name), "failed to start udhcpd");
 										}
 									}
 								}
 							Config::WPASupplicant(path) => {
 									// copy config path to temporary location
 									let configpath = format!("/var/run/wpa.{}.conf", self.name);
-									println!("[net:{}] link wpa supplicant config path {}", self.name, configpath);
+									runtime.logger.service_log(&format!("net:{}", self.name), &format!("link wpa supplicant config path {}", configpath));
 									if std::path::Path::new(path).exists() {
 										if let Ok(_) = std::fs::copy(&path, &configpath) {
-											println!("[net:{}] using wpa config from {}", self.name, path);
+											runtime.logger.service_log(&format!("net:{}", self.name), &format!("using wpa config from {}", path));
 										}
 									} else {
-										println!("[net:{}] wpa config {} does not exist, creating empty config", self.name, path);
+										runtime.logger.service_log(&format!("net:{}", self.name), &format!("wpa config {} does not exist, creating empty config", path));
 										if let Ok(_) = std::fs::write(&configpath, "") {
-											println!("[net:{}] failed to created empty wpa config", self.name);
+											runtime.logger.service_log(&format!("net:{}", self.name), "failed to created empty wpa config");
 										}
 									}
 
 									// start wpa_supplicant process on the interface
 									if let Ok(child) = Command::new("/usr/sbin/wpa_supplicant")
 											.args(&["-c", &configpath, "-i", &self.name]).spawn() {
-										println!("[net:{}] starting wpa supplicant", self.name);
-										context.register_child(&child);
+										runtime.logger.service_log(&format!("net:{}", self.name), "starting wpa supplicant");
 										c.state = State::WPASupplicant(child);
 									} else {
-										println!("[net:{}] failed to start wpa supplicant", self.name);
+										runtime.logger.service_log(&format!("net:{}", self.name), "failed to start wpa supplicant");
 									}
 								}
-							_ => {}
 						}
 					}
 				State::LinkStaticIpv4(_) => { c.state = State::Ready; }
 				State::LinkDHCP(_) => { continue; }
 				State::LinkDHCPD(_) => { continue; }
 				State::WPASupplicant(_) => { continue; }
-				_ => {}
 			}
 		}
 	}
@@ -154,17 +146,14 @@ impl NetworkDeviceService
 
 impl Service for NetworkDeviceService
 {
-	fn setup(&mut self, runtime : &Runtime, context : &mut ServiceContext)
-	{
-		context.register_device_subsystem("net");
-	}
+	fn setup(&mut self, _runtime : &mut Runtime) {}
 
 	fn state(&self) -> ServiceState
 	{
 		return ServiceState::Unknown;
 	}
 
-	fn start(&mut self, runtime : &Runtime, context : &mut ServiceContext)
+	fn start(&mut self, runtime : &mut Runtime)
 	{
 		if self.available() {
 			// safely check state first
@@ -174,47 +163,56 @@ impl Service for NetworkDeviceService
 				}
 				return; // don't start if one or more states are not None
 			}
-			self.startup_step(runtime, context);
+			self.startup_step(runtime);
 		}
 	}
 
-	fn stop(&mut self, runtime : &Runtime, context : &mut ServiceContext)
+	fn stop(&mut self, _runtime : &mut Runtime)
 	{
 		// TODO: safe bringdown?
 	}
 
-	fn process_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, pid : nix::unistd::Pid, status : std::process::ExitStatus)
+	fn event(&mut self, runtime : &mut Runtime, event : ServiceEvent) -> bool
 	{
-		// TODO: actually check the return code and pid
-		self.startup_step(runtime, context);
-	}
+		match event {
+			ServiceEvent::ProcessExited(_pid, _status) => {
+				// TODO: actually check the return code and pid
+				self.startup_step(runtime);
+				return true;
+			}
+			ServiceEvent::Device(event) => {
+				if event.udev {
+					return false;
+				}
 
-	fn device_event(&mut self, runtime : &Runtime, context : &mut ServiceContext, event : &uevent::EventData)
-	{
-		if event.udev {
-			return;
-		}
+				if let Some(action) = event.properties.get("ACTION") {
+					if !(action == "add" || action == "remove") {
+						return false;
+					}
 
-		if let Some(action) = event.properties.get("ACTION") {
-			if action == "add" || action == "remove" {
-				let added = action == "add";
-
-				if let Some(subsys) = event.properties.get("SUBSYSTEM") {
-					if subsys == "net" {
-						if let Some(name) = event.properties.get("INTERFACE") {
-							if &self.name == name {
-								println!("[net:{}] device was {}", self.name, match added { true => "added", false => "removed"});
-								if added {
-									self.start(runtime, context);
-								} else {
-									self.stop(runtime, context);
-								}
+					let added = action == "add";
+					if let Some(subsys) = event.properties.get("SUBSYSTEM") {
+						if subsys == "net" {
+							return false;
+						}
+					}
+					if let Some(name) = event.properties.get("INTERFACE") {
+						if &self.name == name {
+							runtime.logger.service_log(&format!("net:{}", self.name),
+								&format!("device was {}", match added { true => "added", false => "removed" }));
+							if added {
+								self.start(runtime);
+							} else {
+								self.stop(runtime);
 							}
+							return true;
 						}
 					}
 				}
 			}
+			_ => {}
 		}
+		return false;
 	}
 }
 
@@ -222,16 +220,17 @@ impl Service for NetworkDeviceService
 mod tests
 {
 	use super::*;
-	use runtime::ServiceManager;
+	use service::ServiceManager;
 
 	#[test]
 	fn test()
 	{
 		let mut manager = ServiceManager::new();
-		let mut rt = Runtime::new().unwrap();
-		let mut service = NetworkDeviceService::new("usb0", Config::StaticIpv4(Ipv4Addr::new(169, 254, 1, 1), 30, None));
+		let mut rt = Runtime::new_default_logger().unwrap();
+		let mut service = NetworkDeviceService::new("usb0");
+		service.add(Config::StaticIpv4(Ipv4Addr::new(169, 254, 1, 1), 30, None));
 
-		manager.add_service(&rt, service, false);
+		manager.add_service(&mut rt, service, false);
 
 		// TODO: cannot really do emulation of devices for integration testing
 		// rt.poll(&mut manager);

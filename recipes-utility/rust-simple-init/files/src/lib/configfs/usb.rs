@@ -82,6 +82,7 @@ pub struct Gadget {
 	name: String,
 }
 
+#[allow(dead_code)]
 impl Gadget {
 	pub fn create(serialnumber : &str, manufacturer : &str, product : &str) -> io::Result<Gadget>
 	{
@@ -351,18 +352,6 @@ impl Gadget {
 
 impl Drop for Gadget {
 	fn drop(&mut self) {
-		self.cleanup();
-	}
-}
-
-#[cfg(test)]
-mod tests
-{
-	use super::*;
-
-	#[test]
-	fn dummy()
-	{
-		Gadget::debug_configfs_tree(Path::new("."), Path::new(".")).unwrap();
+		self.cleanup().unwrap_or(());
 	}
 }
