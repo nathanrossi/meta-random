@@ -1,5 +1,5 @@
 use std::io;
-use std::io::{BufRead, Read, BufReader};
+use super::sysfs::*;
 
 #[derive(Debug)]
 pub struct MountEntry
@@ -10,69 +10,38 @@ pub struct MountEntry
 	options : String,
 }
 
-impl MountEntry
+impl SysfsEntryParsable<MountEntry> for MountEntry
 {
-	pub fn new(fstype : &str, device : &str, point : &str, options : &str) -> Self
+	fn parse(line : &str) -> Option<Self>
 	{
-		return MountEntry {
-				fstype : fstype.to_owned(),
-				device : device.to_owned(),
-				point : point.to_owned(),
-				options :options.to_owned(),
-			};
-	}
-}
-
-pub struct MountIter<R>
-{
-	file: std::io::BufReader<R>,
-}
-
-impl<R: Read> Iterator for MountIter<R>
-{
-	type Item = MountEntry;
-
-	fn next(&mut self) -> Option<Self::Item>
-	{
-		let mut buffer : String = String::with_capacity(512);
-		loop {
-			buffer.clear();
-			if let Ok(count) = self.file.read_line(&mut buffer) {
-				if count == 0 {
-					return None; // EOF
-				}
-
-				if buffer.len() == 0 {
-					continue;
-				}
-
-				let mut parts = buffer.split(" ");
-				let device = parts.next();
-				let point = parts.next();
-				let fstype = parts.next();
-				let options = parts.next();
-				if device == None || point == None || fstype == None || options == None {
-					continue;
-				}
-
-				return Some(MountEntry::new(fstype.unwrap(), device.unwrap(), point.unwrap(), options.unwrap()));
-			} else {
-				return None;
-			}
+		let mut parts = line.split(" ");
+		let device = parts.next();
+		let point = parts.next();
+		let fstype = parts.next();
+		let options = parts.next();
+		if device == None || point == None || fstype == None || options == None {
+			return None;
 		}
+
+		return Some(MountEntry {
+				fstype : fstype.unwrap().to_owned(),
+				device : device.unwrap().to_owned(),
+				point : point.unwrap().to_owned(),
+				options : options.unwrap().to_owned(),
+			});
 	}
 }
 
 #[allow(dead_code)]
-pub fn mounts() -> io::Result<MountIter<std::fs::File>>
+pub fn mounts() -> io::Result<SysfsEntryIter<std::fs::File, MountEntry>>
 {
-	return Ok(MountIter { file : BufReader::new(std::fs::File::open("/proc/self/mounts")?) });
+	return SysfsEntryIter::from_file("/proc/self/mounts");
 }
 
 #[allow(dead_code)]
-pub fn mounts_from_string(data : &str) -> MountIter<&[u8]>
+pub fn mounts_from_string(data : &str) -> SysfsEntryIter<&[u8], MountEntry>
 {
-	return MountIter { file : BufReader::new(data.as_bytes()) };
+	return SysfsEntryIter::from_string(data);
 }
 
 pub fn mounted(point : &str, device : Option<&str>, fstype : Option<&str>) -> bool
