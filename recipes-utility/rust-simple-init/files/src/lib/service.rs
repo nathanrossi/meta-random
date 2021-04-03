@@ -18,11 +18,13 @@ pub enum ServiceState
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum ServiceEvent<'a>
 {
 	ProcessExited(u32, std::process::ExitStatus),
 	Fd(std::os::unix::io::RawFd),
 	Device(&'a uevent::EventData),
+	Invalid,
 }
 
 pub trait Service

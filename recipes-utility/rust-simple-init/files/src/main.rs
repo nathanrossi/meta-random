@@ -72,10 +72,10 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 
 	// modprobe camera driver
 	let modprobe = manager.add_service(&mut rt, ProcessService::oneshot("/sbin/modprobe", &["bcm2835-v4l2"]), true);
-	rt.poll_service_ready(&mut manager, &modprobe)?;
+	// rt.poll_service_ready(&mut manager, &modprobe)?;
 	// modprobe wifi
 	let modprobe = manager.add_service(&mut rt, ProcessService::oneshot("/sbin/modprobe", &["brcmfmac"]), true);
-	rt.poll_service_ready(&mut manager, &modprobe)?;
+	// rt.poll_service_ready(&mut manager, &modprobe)?;
 
 	rt.logger.service_log("init", "usb device class");
 	// configfs::usb::Gadget::debug_interfaces();
