@@ -57,7 +57,7 @@ impl PipeBuffer
 enum ProcessState
 {
 	Stopped,
-	Waiting,
+	Starting,
 	Running(Child, PipeBuffer, PipeBuffer),
 	Completed,
 	Error,
@@ -108,16 +108,14 @@ impl ProcessService
 
 	fn check_state(&mut self, runtime : &mut Runtime)
 	{
-		if let ProcessState::Stopped = self.state {
-			if !self.devices.is_empty() {
-				self.state = ProcessState::Waiting;
-			}
+		// Do not attempt to check/change state for inactive states
+		match self.state {
+			ProcessState::Starting => (),
+			_ => return,
 		}
 
-		if let ProcessState::Waiting = self.state {
-			if !self.check_devices(runtime) {
-				return;
-			}
+		if !self.check_devices(runtime) {
+			return;
 		}
 
 		if let Ok(child) = self.command
@@ -181,6 +179,7 @@ impl Service for ProcessService
 	fn state(&self) -> ServiceState
 	{
 		match self.state {
+			ProcessState::Starting => { return ServiceState::Starting; }
 			ProcessState::Running(_, _, _) => {
 					if self.oneshot {
 						return ServiceState::Starting;
@@ -195,6 +194,7 @@ impl Service for ProcessService
 
 	fn start(&mut self, runtime : &mut Runtime)
 	{
+		self.state = ProcessState::Starting;
 		self.check_state(runtime);
 	}
 
