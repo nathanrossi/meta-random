@@ -11,6 +11,7 @@ use services::mount;
 use services::console::ConsoleService;
 use services::network;
 use services::network::NetworkDeviceService;
+use services::dev::DeviceManagerService;
 use services::openssh::SSHService;
 use lib::logging::Logger;
 
@@ -65,16 +66,19 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 	rt.logger.add_file("/var/volatile/log/messages")?;
 	rt.logger.service_log("init", "created log file for messages");
 
+	// start device manager
+	manager.add_service(&mut rt, DeviceManagerService::new(), true);
+
 	// add serial consoles
 	manager.add_service(&mut rt, ConsoleService::new("ttyACM0", 115200, true), true);
 	manager.add_service(&mut rt, ConsoleService::new("ttyAMA0", 115200, true), true); // qemuarm serial
 	// manager.add_service(&mut rt, ConsoleService::new("ttyUSB0", 115200, true), true);
 
 	// modprobe camera driver
-	let modprobe = manager.add_service(&mut rt, ProcessService::oneshot("/sbin/modprobe", &["bcm2835-v4l2"]), true);
+	// let modprobe = manager.add_service(&mut rt, ProcessService::oneshot("/sbin/modprobe", &["bcm2835-v4l2"]), true);
 	// rt.poll_service_ready(&mut manager, &modprobe)?;
 	// modprobe wifi
-	let modprobe = manager.add_service(&mut rt, ProcessService::oneshot("/sbin/modprobe", &["brcmfmac"]), true);
+	// let modprobe = manager.add_service(&mut rt, ProcessService::oneshot("/sbin/modprobe", &["brcmfmac"]), true);
 	// rt.poll_service_ready(&mut manager, &modprobe)?;
 
 	rt.logger.service_log("init", "usb device class");

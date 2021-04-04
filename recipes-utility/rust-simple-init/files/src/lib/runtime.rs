@@ -159,11 +159,6 @@ impl<'a> Runtime<'a>
 		} else if tokenid == 1 {
 			let message = self.uevent.read()?;
 			if let Some(eventdata) = message {
-				// println!("[uevent] got event");
-				// for (k, v) in eventdata.properties.iter() {
-					// println!("    {} = {}", k, v);
-				// }
-
 				if manager.device_event(self, &eventdata) {
 					return Ok(true);
 				}

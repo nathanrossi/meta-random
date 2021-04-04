@@ -8,8 +8,8 @@ pub trait SysfsEntryParsable<T>
 
 pub struct SysfsEntryIter<R, T>
 {
-	file: std::io::BufReader<R>,
-	evaluator: std::marker::PhantomData<T>,
+	file : std::io::BufReader<R>,
+	evaluator : std::marker::PhantomData<T>,
 }
 
 impl<R: Read, T: SysfsEntryParsable<T>> Iterator for SysfsEntryIter<R, T>
@@ -30,7 +30,7 @@ impl<R: Read, T: SysfsEntryParsable<T>> Iterator for SysfsEntryIter<R, T>
 					continue;
 				}
 
-				if let Some(entry) = T::parse(&buffer) {
+				if let Some(entry) = T::parse(&buffer.trim()) {
 					return Some(entry);
 				}
 			} else {
@@ -39,7 +39,6 @@ impl<R: Read, T: SysfsEntryParsable<T>> Iterator for SysfsEntryIter<R, T>
 		}
 	}
 }
-
 
 impl<T: SysfsEntryParsable<T>> SysfsEntryIter<std::fs::File, T>
 {
@@ -61,4 +60,12 @@ impl<T: SysfsEntryParsable<T>> SysfsEntryIter<&[u8], T>
 				evaluator : std::marker::PhantomData,
 			};
 	}
+}
+
+pub fn read_file<P: AsRef<std::path::Path>>(path : P) -> Option<String>
+{
+	if let Ok(content) = std::fs::read_to_string(path) {
+		return Some(content);
+	}
+	return None;
 }

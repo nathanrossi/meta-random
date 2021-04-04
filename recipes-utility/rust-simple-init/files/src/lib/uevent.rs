@@ -34,6 +34,19 @@ pub struct EventData
 
 impl EventData
 {
+	pub fn get(&self, key : &str) -> Option<&str>
+	{
+		if let Some(value) = self.properties.get(key) {
+			return Some(&value);
+		}
+		return None;
+	}
+
+	pub fn devpath(&self) -> Option<&str>
+	{
+		return self.get("DEVPATH");
+	}
+
 	fn parse_prop(data : &[u8]) -> Option<(&str, &str)>
 	{
 		if let Ok(s) = std::str::from_utf8(data) {
