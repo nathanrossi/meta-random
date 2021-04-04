@@ -30,6 +30,109 @@ struct ConfigState
 	state : State,
 }
 
+impl ConfigState
+{
+	pub fn begin(&mut self, device : &str, runtime : &mut Runtime)
+	{
+		match &mut self.state {
+			State::None => {
+					if let Ok(child) = Command::new("/sbin/ip").args(&["link", "set", "dev", device, "up"]).spawn() {
+						runtime.logger.service_log(&format!("net:{}", device), "link bringup");
+						self.state = State::LinkSetup(child);
+					}
+				}
+			_ => { },
+		}
+	}
+
+	pub fn check(&mut self, device : &str, runtime : &mut Runtime, pid : u32, _status : std::process::ExitStatus) -> bool
+	{
+		// TODO: handle the status of processes that exit
+		match &mut self.state {
+			State::Ready => { return false; } // this state is done, move to next
+			State::LinkSetup(child) => {
+					if child.id() != pid {
+						return false;
+					}
+
+					match &self.config {
+						Config::StaticIpv4(host, prefix, _) => {
+								let fmtaddr = format!("{}/{}", host, prefix);
+								if let Ok(child) = Command::new("/sbin/ip").args(&["addr", "add", &fmtaddr, "dev", &device]).spawn() {
+									runtime.logger.service_log(&format!("net:{}", device), "link addr static setup");
+									self.state = State::LinkStaticIpv4(child);
+								}
+							}
+						Config::DHCP => {
+								if let Ok(child) = Command::new("/sbin/udhcpc").args(&["-f", "-i", &device]).spawn() {
+									runtime.logger.service_log(&format!("net:{}", device), "link dhcp");
+									self.state = State::LinkDHCP(child);
+								} else {
+									runtime.logger.service_log(&format!("net:{}", device), "failed to start udhcpc");
+								}
+							}
+						Config::DHCPD(start, end) => {
+								// create config
+								let configpath = format!("/var/run/dhcp.{}.conf", device);
+								runtime.logger.service_log(&format!("net:{}", device), &format!("link dhcpd config path {}", configpath));
+								if let Ok(_) = std::fs::write(&configpath, [
+										&format!("start {}", start),
+										&format!("end {}", end),
+										&format!("interface {}", device),
+										&format!("lease_file /var/run/dhcp.{}.leases", device),
+										"option subnet 255.255.255.252",
+										"option lease 3600",
+										].join("\n")) {
+									if let Ok(child) = Command::new("/usr/sbin/udhcpd").arg(configpath).spawn() {
+										runtime.logger.service_log(&format!("net:{}", device), "link dhcpd");
+										self.state = State::LinkDHCPD(child);
+									} else {
+										runtime.logger.service_log(&format!("net:{}", device), "failed to start udhcpd");
+									}
+								}
+							}
+						Config::WPASupplicant(path) => {
+								// copy config path to temporary location
+								let configpath = format!("/var/run/wpa.{}.conf", device);
+								runtime.logger.service_log(&format!("net:{}", device), &format!("link wpa supplicant config path {}", configpath));
+								if std::path::Path::new(path).exists() {
+									if let Ok(_) = std::fs::copy(&path, &configpath) {
+										runtime.logger.service_log(&format!("net:{}", device), &format!("using wpa config from {}", path));
+									}
+								} else {
+									runtime.logger.service_log(&format!("net:{}", device), &format!("wpa config {} does not exist, creating empty config", path));
+									if let Ok(_) = std::fs::write(&configpath, "") {
+										runtime.logger.service_log(&format!("net:{}", device), "failed to created empty wpa config");
+									}
+								}
+
+								// start wpa_supplicant process on the interface
+								if let Ok(child) = Command::new("/usr/sbin/wpa_supplicant")
+										.args(&["-c", &configpath, "-i", device]).spawn() {
+									runtime.logger.service_log(&format!("net:{}", device), "starting wpa supplicant");
+									self.state = State::WPASupplicant(child);
+								} else {
+									runtime.logger.service_log(&format!("net:{}", device), "failed to start wpa supplicant");
+								}
+							}
+					}
+				}
+			State::LinkStaticIpv4(child) => {
+					if child.id() != pid {
+						return false;
+					}
+
+					self.state = State::Ready;
+				}
+			// State::LinkDHCP(_) => ,
+			// State::LinkDHCPD(_) => ,
+			// State::WPASupplicant(_) => ,
+			_ => {},
+		}
+		return false;
+	}
+}
+
 pub struct NetworkDeviceService
 {
 	name : String,
@@ -60,88 +163,6 @@ impl NetworkDeviceService
 	{
 		return NetworkDeviceService::iface_available(&self.name);
 	}
-
-	fn startup_step(&mut self, runtime : &mut Runtime)
-	{
-		for c in &mut self.configs {
-			match c.state {
-				State::Ready => { continue; } // this state is done, move to next
-				State::None => {
-						if let Ok(child) = Command::new("/sbin/ip").args(&["link", "set", "dev", &self.name, "up"]).spawn() {
-							runtime.logger.service_log(&format!("net:{}", self.name), "link bringup");
-							c.state = State::LinkSetup(child);
-						}
-					}
-				State::LinkSetup(_) => {
-						match &c.config {
-							Config::StaticIpv4(host, prefix, _) => {
-									let fmtaddr = format!("{}/{}", host, prefix);
-									if let Ok(child) = Command::new("/sbin/ip").args(&["addr", "add", &fmtaddr, "dev", &self.name]).spawn() {
-										runtime.logger.service_log(&format!("net:{}", self.name), "link addr static setup");
-										c.state = State::LinkStaticIpv4(child);
-									}
-								}
-							Config::DHCP => {
-									if let Ok(child) = Command::new("/sbin/udhcpc").args(&["-f", "-i", &self.name]).spawn() {
-										runtime.logger.service_log(&format!("net:{}", self.name), "link dhcp");
-										c.state = State::LinkDHCP(child);
-									} else {
-										runtime.logger.service_log(&format!("net:{}", self.name), "failed to start udhcpc");
-									}
-								}
-							Config::DHCPD(start, end) => {
-									// create config
-									let configpath = format!("/var/run/dhcp.{}.conf", self.name);
-									runtime.logger.service_log(&format!("net:{}", self.name), &format!("link dhcpd config path {}", configpath));
-									if let Ok(_) = std::fs::write(&configpath, [
-											&format!("start {}", start),
-											&format!("end {}", end),
-											&format!("interface {}", self.name),
-											&format!("lease_file /var/run/dhcp.{}.leases", self.name),
-											"option subnet 255.255.255.252",
-											"option lease 3600",
-											].join("\n")) {
-										if let Ok(child) = Command::new("/usr/sbin/udhcpd").arg(configpath).spawn() {
-											runtime.logger.service_log(&format!("net:{}", self.name), "link dhcpd");
-											c.state = State::LinkDHCPD(child);
-										} else {
-											runtime.logger.service_log(&format!("net:{}", self.name), "failed to start udhcpd");
-										}
-									}
-								}
-							Config::WPASupplicant(path) => {
-									// copy config path to temporary location
-									let configpath = format!("/var/run/wpa.{}.conf", self.name);
-									runtime.logger.service_log(&format!("net:{}", self.name), &format!("link wpa supplicant config path {}", configpath));
-									if std::path::Path::new(path).exists() {
-										if let Ok(_) = std::fs::copy(&path, &configpath) {
-											runtime.logger.service_log(&format!("net:{}", self.name), &format!("using wpa config from {}", path));
-										}
-									} else {
-										runtime.logger.service_log(&format!("net:{}", self.name), &format!("wpa config {} does not exist, creating empty config", path));
-										if let Ok(_) = std::fs::write(&configpath, "") {
-											runtime.logger.service_log(&format!("net:{}", self.name), "failed to created empty wpa config");
-										}
-									}
-
-									// start wpa_supplicant process on the interface
-									if let Ok(child) = Command::new("/usr/sbin/wpa_supplicant")
-											.args(&["-c", &configpath, "-i", &self.name]).spawn() {
-										runtime.logger.service_log(&format!("net:{}", self.name), "starting wpa supplicant");
-										c.state = State::WPASupplicant(child);
-									} else {
-										runtime.logger.service_log(&format!("net:{}", self.name), "failed to start wpa supplicant");
-									}
-								}
-						}
-					}
-				State::LinkStaticIpv4(_) => { c.state = State::Ready; }
-				State::LinkDHCP(_) => { continue; }
-				State::LinkDHCPD(_) => { continue; }
-				State::WPASupplicant(_) => { continue; }
-			}
-		}
-	}
 }
 
 impl Service for NetworkDeviceService
@@ -163,7 +184,9 @@ impl Service for NetworkDeviceService
 				}
 				return; // don't start if one or more states are not None
 			}
-			self.startup_step(runtime);
+			for c in &mut self.configs {
+				c.begin(&self.name, runtime);
+			}
 		}
 	}
 
@@ -175,10 +198,13 @@ impl Service for NetworkDeviceService
 	fn event(&mut self, runtime : &mut Runtime, event : ServiceEvent) -> bool
 	{
 		match event {
-			ServiceEvent::ProcessExited(_pid, _status) => {
-				// TODO: actually check the return code and pid
-				self.startup_step(runtime);
-				return true;
+			ServiceEvent::ProcessExited(pid, status) => {
+				for c in &mut self.configs {
+					if c.check(&self.name, runtime, pid, status) {
+						return true;
+					}
+				}
+				return false;
 			}
 			ServiceEvent::Device(event) => {
 				if event.udev {

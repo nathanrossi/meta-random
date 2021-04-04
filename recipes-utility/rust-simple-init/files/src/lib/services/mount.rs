@@ -157,8 +157,8 @@ impl Service for MountSetup
 					runtime.logger.service_log("mount", &format!("{}, failed to mount (err = {})", self.mounts[*index].point, status));
 					self.state = State::Error; // TODO: allow some mounts to fail?
 				}
+				return true;
 			}
-			return true;
 		}
 		return false;
 	}
