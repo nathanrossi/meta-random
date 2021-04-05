@@ -49,7 +49,7 @@ impl ConfigState
 	{
 		// TODO: handle the status of processes that exit
 		match &mut self.state {
-			State::Ready => { return false; } // this state is done, move to next
+			State::Ready => { return false; } // this state is complete, nothing to do
 			State::LinkSetup(child) => {
 					if child.id() != pid {
 						return false;
@@ -116,6 +116,8 @@ impl ConfigState
 								}
 							}
 					}
+
+					return true;
 				}
 			State::LinkStaticIpv4(child) => {
 					if child.id() != pid {
@@ -123,6 +125,7 @@ impl ConfigState
 					}
 
 					self.state = State::Ready;
+					return true;
 				}
 			// State::LinkDHCP(_) => ,
 			// State::LinkDHCPD(_) => ,
@@ -145,7 +148,6 @@ impl NetworkDeviceService
 	{
 		return Self { name : name.to_owned(), configs : Vec::new() };
 	}
-
 
 	pub fn iface_available(iface : &str) -> bool
 	{
@@ -207,21 +209,18 @@ impl Service for NetworkDeviceService
 				return false;
 			}
 			ServiceEvent::Device(event) => {
-				if event.udev {
-					return false;
-				}
-
 				if let Some(action) = event.properties.get("ACTION") {
+					let added = action == "add";
 					if !(action == "add" || action == "remove") {
 						return false;
 					}
 
-					let added = action == "add";
 					if let Some(subsys) = event.properties.get("SUBSYSTEM") {
-						if subsys == "net" {
+						if subsys != "net" {
 							return false;
 						}
 					}
+
 					if let Some(name) = event.properties.get("INTERFACE") {
 						if &self.name == name {
 							runtime.logger.service_log(&format!("net:{}", self.name),

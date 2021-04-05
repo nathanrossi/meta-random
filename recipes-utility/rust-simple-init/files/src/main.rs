@@ -74,13 +74,6 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 	manager.add_service(&mut rt, ConsoleService::new("ttyAMA0", 115200, true), true); // qemuarm serial
 	// manager.add_service(&mut rt, ConsoleService::new("ttyUSB0", 115200, true), true);
 
-	// modprobe camera driver
-	// let modprobe = manager.add_service(&mut rt, ProcessService::oneshot("/sbin/modprobe", &["bcm2835-v4l2"]), true);
-	// rt.poll_service_ready(&mut manager, &modprobe)?;
-	// modprobe wifi
-	// let modprobe = manager.add_service(&mut rt, ProcessService::oneshot("/sbin/modprobe", &["brcmfmac"]), true);
-	// rt.poll_service_ready(&mut manager, &modprobe)?;
-
 	rt.logger.service_log("init", "usb device class");
 	// configfs::usb::Gadget::debug_interfaces();
 
@@ -90,7 +83,6 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 		manager.add_service(&mut rt, ConsoleService::new("ttyGS0", 115200, true), true); // gadget serial
 		let mut usb0 = NetworkDeviceService::new("usb0");
 		usb0.add(network::Config::StaticIpv4(Ipv4Addr::new(169, 254, 1, 1), 30, None));
-		// start_dhcpd("usb0", Ipv4Addr::new(169, 254, 1, 2), Ipv4Addr::new(169, 254, 1, 2));
 		usb0.add(network::Config::DHCPD(Ipv4Addr::new(169, 254, 1, 2), Ipv4Addr::new(169, 254, 1, 2)));
 		manager.add_service(&mut rt, usb0, true);
 		manager.add_service(&mut rt, services::gadget::UsbGadgetService::new(&udc, || {
@@ -123,12 +115,12 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 
 	// mjpeg streaming of camera
 	let mut mjpg = ProcessService::new("/usr/bin/mjpg_streamer", &[
-			"-i", "/usr/lib/mjpg-streamer/input_raspicam.so -x 1296 -y 972 -fps 15 -ISO 50 -quality 90",
+			// "-i", "/usr/lib/mjpg-streamer/input_raspicam.so -x 1296 -y 972 -fps 15 -ISO 50 -quality 90",
 			"-i", "/usr/lib/mjpg-streamer/input_uvc.so -resolution 1296x972 -fps 15 -d /dev/video0",
 			"-o", "/usr/lib/mjpg-streamer/output_http.so -p 80"]);
 	mjpg.add_device_dependency("/dev/video0"); // don't start until /dev/video0 is available
 	manager.add_service(&mut rt, mjpg, true);
 
-	return rt.poll(&mut manager);
+	return rt.poll(&mut manager, false);
 }
 

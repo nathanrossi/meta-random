@@ -127,24 +127,34 @@ impl Socket
 	pub fn read(&self) -> nix::Result<Option<EventData>>
 	{
 		let mut buf = [0u8; 4096];
-		let (size, addr) = recvfrom(self.fd, &mut buf)?;
+		match recvfrom(self.fd, &mut buf) {
+			Ok((size, addr)) => {
+					if size == 0 {
+						return Ok(None);
+					}
 
-		if size == 0 {
-			return Ok(None);
-		}
+					// check if udev source
+					let mut udev : bool = false;
+					if let Some(a) = addr {
+						if let SockAddr::Netlink(nladdr) = a {
+							udev = nladdr.groups() == 2;
+						}
+					}
 
-		// check if udev source
-		let mut udev : bool = false;
-		if let Some(a) = addr {
-			if let SockAddr::Netlink(nladdr) = a {
-				udev = nladdr.groups() == 2;
-			}
+					if let Some(data) = EventData::parse_message(&buf[0..size], udev) {
+						return Ok(Some(data));
+					}
+					return Ok(None);
+				},
+			Err(e) => {
+					if let nix::Error::Sys(errno) = e {
+						if errno == nix::errno::Errno::EAGAIN {
+							return Ok(None);
+						}
+					}
+					return Err(e);
+				},
 		}
-
-		if let Some(data) = EventData::parse_message(&buf[0..size], udev) {
-			return Ok(Some(data));
-		}
-		return Ok(None);
 	}
 }
 

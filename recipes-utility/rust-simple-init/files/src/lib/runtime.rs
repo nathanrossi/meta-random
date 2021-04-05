@@ -95,34 +95,38 @@ impl<'a> Runtime<'a>
 		return Ok(());
 	}
 
-	pub fn poll(&mut self, manager : &mut ServiceManager) -> Result<()>
+	pub fn poll(&mut self, manager : &mut ServiceManager, once : bool) -> Result<()>
 	{
 		let mut events = mio::Events::with_capacity(64);
 		loop {
 			self.poll.poll(&mut events, None)?;
+			let mut washandled = false;
 			for event in &events {
-				if let Err(e) = self.handle_event(manager, event) {
-					println!("error!: {:?}", e);
+				match self.handle_event(manager, event) {
+					Ok(handled) => {
+							if handled {
+								washandled = true;
+							} else {
+								break;
+							}
+						},
+					Err(e) => {
+							self.logger.service_log("runtime", &format!("error when polling: {:?}", e));
+							continue;
+						}
 				}
+			}
+
+			if once && washandled {
+				return Ok(());
 			}
 		}
 	}
 
+	// TODO: replace this
 	pub fn poll_once(&mut self, manager : &mut ServiceManager) -> Result<()>
 	{
-		let mut events = mio::Events::with_capacity(64);
-		loop {
-			self.poll.poll(&mut events, None)?;
-			let mut handled = 0;
-			for event in &events {
-				if self.handle_event(manager, event)? {
-					handled += 1;
-				}
-			}
-			if handled != 0 {
-				return Ok(());
-			}
-		}
+		return self.poll(manager, true);
 	}
 
 	pub fn poll_service_ready<'s>(&mut self, manager : &mut ServiceManager, service : &ServiceRef<'s>) -> Result<()>
@@ -142,25 +146,32 @@ impl<'a> Runtime<'a>
 	{
 		let tokenid = usize::from(event.token());
 		if tokenid == 0 {
-			// signal
-			let signal = self.signalfd.read_signal()?;
-			if let Some(_) = signal {
-				let mut handled = false;
-				// loop through any waiting child processes
-				loop {
-					if self.check_processes(manager)? {
-						handled = true;
-					} else {
-						break;
+			let mut handled = false;
+			loop {
+				// signal
+				let signal = self.signalfd.read_signal()?;
+				if let Some(_) = signal {
+					// loop through any waiting child processes
+					loop {
+						if self.check_processes(manager)? {
+							handled = true;
+						} else {
+							break;
+						}
 					}
+				} else {
+					return Ok(handled);
 				}
-				return Ok(handled);
 			}
 		} else if tokenid == 1 {
-			let message = self.uevent.read()?;
-			if let Some(eventdata) = message {
-				if manager.device_event(self, &eventdata) {
-					return Ok(true);
+			let mut handled = true;
+			loop {
+				if let Some(eventdata) = self.uevent.read()? {
+					if manager.device_event(self, &eventdata) {
+						handled = true;
+					}
+				} else {
+					return Ok(handled);
 				}
 			}
 		} else if let Some(fd) = self.get_fd_from_token(tokenid) {
@@ -192,7 +203,7 @@ impl<'a> Runtime<'a>
 								}
 
 								// TODO: handle orphan
-								println!("reaped orphan (pid = {}, status = {})", pid, status);
+								self.logger.service_log("runtime", &format!("reaped orphan (pid = {}, status = {})", pid, status));
 
 								return Ok(false);
 							}
@@ -203,12 +214,12 @@ impl<'a> Runtime<'a>
 								}
 
 								// TODO: handle orphan
-								println!("reaped orphan (pid = {}, signal = {})", pid, signal);
+								self.logger.service_log("runtime", &format!("reaped orphan (pid = {}, signal = {})", pid, signal));
 
 								return Ok(false);
 							}
 						_ => {
-							println!("check_processes: ???? {:?}", status);
+							self.logger.service_log("runtime", &format!("check_processes: ??? {:?}", status));
 							return Ok(false);
 						}
 					}
