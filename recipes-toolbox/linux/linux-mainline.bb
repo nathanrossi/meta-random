@@ -17,8 +17,8 @@ COMPATIBLE_MACHINE = "^$"
 S = "${WORKDIR}/git"
 
 BRANCH = "master"
-SRCREV = "dd9fb9bb3340c791a2be106fdc895db75f177343"
-PV = "5.9-rc3+git${SRCPV}"
+SRCREV = "e49d033bddf5b565044e2abe4241353959bc9120"
+PV = "5.12-rc6+git${SRCPV}"
 SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;protocol=https;branch=${BRANCH}"
 
 python do_generate_config() {
