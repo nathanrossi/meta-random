@@ -16,7 +16,7 @@ DEPENDS += "libusb"
 do_configure[noexec] = "1"
 
 # fmemopen support needed
-CFLAGS_append_libc-musl = " -D_GNU_SOURCE"
+CFLAGS:append:libc-musl = " -D_GNU_SOURCE"
 
 do_compile() {
     oe_runmake clean

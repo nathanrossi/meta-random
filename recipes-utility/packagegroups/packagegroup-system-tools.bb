@@ -2,7 +2,7 @@ SUMMARY = "System tools for debugging, disks, network, etc."
 
 inherit packagegroup
 
-RDEPENDS_${PN} = " \
+RDEPENDS:${PN} = " \
 		iperf3 \
 		iperf2 \
 		iputils \

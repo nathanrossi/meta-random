@@ -25,8 +25,8 @@ do_install() {
 	install -m 0755 ${B}/test-glib-python-gi.py ${D}${bindir}/test-glib-python-gi.py
 }
 
-RDEPENDS_${PN} += "python3 python3-modules python3-pygobject"
-FILES_${PN} += " \
+RDEPENDS:${PN} += "python3 python3-modules python3-pygobject"
+FILES:${PN} += " \
 		${bindir}/test-glib-helloworld \
 		${bindir}/test-glib-python-gi.py \
 		"

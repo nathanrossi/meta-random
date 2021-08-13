@@ -20,12 +20,12 @@ PACKAGECONFIG[uvc] = "-DPLUGIN_INPUT_UVC=ON,-DPLUGIN_INPUT_UVC=OFF,v4l-utils"
 PACKAGECONFIG[raspicam] = "-DPLUGIN_INPUT_RASPICAM=ON,-DPLUGIN_INPUT_RASPICAM=OFF,userland"
 
 # Make it rpi specific due to depending on rpi binaries
-PACKAGECONFIG_append_rpi = "${@bb.utils.contains("MACHINE_FEATURES", "vc4graphics", " raspicam", "", d)}"
-PACKAGE_ARCH_rpi = "${MACHINE_ARCH}"
+PACKAGECONFIG:append:rpi = "${@bb.utils.contains("MACHINE_FEATURES", "vc4graphics", " raspicam", "", d)}"
+PACKAGE_ARCH:rpi = "${MACHINE_ARCH}"
 # needs to link with libmmal_vc_client.so
-ASNEEDED_rpi = ""
+ASNEEDED:rpi = ""
 
-do_configure_prepend() {
+do_configure:prepend() {
     # HACK: replace include file check for raspi
     sed -i 's/HAS_RASPI OFF/HAS_RASPI ON/g' ${S}/plugins/input_raspicam/CMakeLists.txt
 }
@@ -35,5 +35,5 @@ do_install() {
 }
 
 # .so files are used as plugin libraries
-FILES_${PN} += "${libdir}/*.so"
+FILES:${PN} += "${libdir}/*.so"
 

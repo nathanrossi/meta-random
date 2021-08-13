@@ -13,7 +13,7 @@ DEPENDS += "ncurses"
 
 inherit cmake
 
-do_install_append_class-nativesdk() {
+do_install:append:class-nativesdk() {
     # fish's relocatable detection assumes the path relative to the binary
     # "../etc" is the sysconfdir. symlink so that it works
     ln -s ../etc ${D}${prefix}/etc
@@ -21,6 +21,6 @@ do_install_append_class-nativesdk() {
 
 BBCLASSEXTEND = "native nativesdk"
 
-FILES_${PN} += "${datadir}/fish"
-FILES_${PN} += "${prefix}/etc"
+FILES:${PN} += "${datadir}/fish"
+FILES:${PN} += "${prefix}/etc"
 

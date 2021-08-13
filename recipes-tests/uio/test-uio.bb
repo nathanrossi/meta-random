@@ -15,7 +15,7 @@ do_install() {
 	install -m 0755 ${B}/test-uio ${D}${bindir}/test-uio
 }
 
-FILES_${PN} += " \
+FILES:${PN} += " \
 		${bindir}/test-uio \
 		"
 

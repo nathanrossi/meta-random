@@ -4,7 +4,7 @@ PACKAGE_ARCH = "${MACHINE_ARCH}"
 
 inherit packagegroup
 
-RDEPENDS_${PN} = " \
+RDEPENDS:${PN} = " \
 		packagegroup-base \
 		\
 		kernel-modules \
@@ -21,7 +21,7 @@ RDEPENDS_${PN} = " \
 		printrun \
 		"
 
-RRECOMMENDS_${PN} = " \
+RRECOMMENDS:${PN} = " \
 		${MACHINE_EXTRA_RRECOMMENDS} \
 		"
 

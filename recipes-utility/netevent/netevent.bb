@@ -9,7 +9,7 @@ SRCREV = "ddd330f0dc956a95a111c58ad10546071058e4c1"
 
 EXTRA_OEMAKE += "PREFIX=${prefix}"
 
-do_configure_append() {
+do_configure:append() {
     for file in ${S}/src/reader.cpp ${S}/src/writer.cpp; do
         sed -i 's/ev\.time\.tv_sec/ev.input_event_sec/g' $file
         sed -i 's/ev\.time\.tv_usec/ev.input_event_usec/g' $file

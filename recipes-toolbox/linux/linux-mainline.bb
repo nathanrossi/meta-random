@@ -9,7 +9,7 @@ inherit kernel
 DEPENDS += "elfutils-native"
 
 # disable kernel-base depending on image, other mechanisms are used to ship the kernel
-RDEPENDS_${KERNEL_PACKAGE_NAME}-base = ""
+RDEPENDS:${KERNEL_PACKAGE_NAME}-base = ""
 
 DEFAULT_PREFERENCE = "-1"
 COMPATIBLE_MACHINE = "^$"
@@ -69,16 +69,16 @@ python do_generate_config() {
 }
 addtask generate_config before do_configure after do_unpack
 
-#KBUILD_DEFCONFIG_arm = "multi_v7_defconfig"
+#KBUILD_DEFCONFIG:arm = "multi_v7_defconfig"
 
-KBUILD_DEFCONFIG_aarch64 = "defconfig"
-KBUILD_DEFCONFIG_arm_rpi = "bcm2835_defconfig"
-COMPATIBLE_MACHINE_rpi = ".*"
+KBUILD_DEFCONFIG:aarch64 = "defconfig"
+KBUILD_DEFCONFIG:arm:rpi = "bcm2835_defconfig"
+COMPATIBLE_MACHINE:rpi = ".*"
 
-KBUILD_DEFCONFIG_raspberrypi0-wifi ?= "bcm2835_defconfig"
-COMPATIBLE_MACHINE_raspberrypi0-wifi = ".*"
+KBUILD_DEFCONFIG:raspberrypi0-wifi ?= "bcm2835_defconfig"
+COMPATIBLE_MACHINE:raspberrypi0-wifi = ".*"
 
-python do_generate_config_append_rpi () {
+python do_generate_config:append:rpi () {
     with open(d.expand("${B}/.config"), "a") as f:
         # make sure aarch64/arm matches in base defconfig
         f.write("CONFIG_CLK_RASPBERRYPI=y\n")
@@ -147,7 +147,7 @@ python do_generate_config_append_rpi () {
     config("SPI_SPIDEV", "y")
 }
 
-python do_generate_config_append_qemuarm () {
+python do_generate_config:append:qemuarm () {
     config("DEVTMPFS", "y")
     config("IKCONFIG_PROC", "y")
 
@@ -164,14 +164,14 @@ python do_generate_config_append_qemuarm () {
     config("VIDEO_V4L2", "y")
     config("USB_USB_F_UVC", "y")
 }
-KBUILD_DEFCONFIG_qemuarm = "multi_v7_defconfig"
-COMPATIBLE_MACHINE_qemuarm = ".*"
+KBUILD_DEFCONFIG:qemuarm = "multi_v7_defconfig"
+COMPATIBLE_MACHINE:qemuarm = ".*"
 
-python do_generate_config_append_toolbox-x64 () {
+python do_generate_config:append:toolbox-x64 () {
     with open(d.expand("${B}/.config"), "a") as f:
         f.write("CONFIG_EFI_STUB=y\n")
         # allow cpu to be trusted to provide entropy
         f.write("CONFIG_RANDOM_TRUST_CPU=y\n")
 }
-KBUILD_DEFCONFIG_toolbox-x64 = "x86_64_defconfig"
-COMPATIBLE_MACHINE_toolbox-x64 = ".*"
+KBUILD_DEFCONFIG:toolbox-x64 = "x86_64_defconfig"
+COMPATIBLE_MACHINE:toolbox-x64 = ".*"

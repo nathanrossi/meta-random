@@ -3,7 +3,7 @@ LICENSE = "MIT"
 
 inherit systemd
 
-SYSTEMD_SERVICE_${PN} = "mjpg-streamer.service"
+SYSTEMD_SERVICE:${PN} = "mjpg-streamer.service"
 
 do_install() {
     install -d ${D}${systemd_unitdir}/system
@@ -21,6 +21,6 @@ __EOF
 }
 
 COMPATIBLE_MACHINE = "^$"
-COMPATIBLE_MACHINE_rpi = ".*"
+COMPATIBLE_MACHINE:rpi = ".*"
 
 PACKAGE_ARCH = "${MACHINE_ARCH}"

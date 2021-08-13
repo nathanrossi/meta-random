@@ -14,7 +14,7 @@ DEPENDS += "glib-2.0 libsigrok libsigrokdecode"
 
 inherit autotools pkgconfig
 
-FILES_${PN} += " \
+FILES:${PN} += " \
     ${datadir}/icons/hicolor/* \
     "
 

@@ -19,7 +19,7 @@ DEPENDS += " \
         python3-pyserial-native \
         "
 
-RDEPENDS_${PN} += " \
+RDEPENDS:${PN} += " \
         python3-pyserial \
         python3-appdirs \
         python3-xmlrpc \
@@ -35,7 +35,7 @@ DISTUTILS_INSTALL_ARGS += "--install-scripts=${bindir}"
 
 PACKAGES += "${PN}-data"
 
-FILES_${PN} += "${datadir}/metainfo/*"
-FILES_${PN}-data += "${datadir}/pronterface"
+FILES:${PN} += "${datadir}/metainfo/*"
+FILES:${PN}-data += "${datadir}/pronterface"
 
 BBCLASSEXTEND = "native nativesdk"

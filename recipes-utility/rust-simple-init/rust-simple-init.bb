@@ -71,16 +71,16 @@ B = "${WORKDIR}/build"
 inherit rust
 inherit cargo
 
-do_install_append() {
+do_install:append() {
     install -d ${D}${base_sbindir} ${D}${bindir}
     install -m 0744 ${B}/target/${CARGO_TARGET_SUBDIR}/rust-simple-init ${D}${base_sbindir}/init
 }
 
-FILES_${PN} += "${base_sbindir}/*"
+FILES:${PN} += "${base_sbindir}/*"
 
-INSANE_SKIP_${PN} += "ldflags"
+INSANE_SKIP:${PN} += "ldflags"
 
 INHIBIT_PACKAGE_STRIP = "1"
 
-RDEPENDS_${PN} += "wpa-supplicant"
-RDEPENDS_${PN} += "mjpg-streamer"
+RDEPENDS:${PN} += "wpa-supplicant"
+RDEPENDS:${PN} += "mjpg-streamer"

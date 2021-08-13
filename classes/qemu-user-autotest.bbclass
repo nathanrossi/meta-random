@@ -9,7 +9,7 @@ python () {
 
 # setup the sysroot so that target binaries are populated, this allows for the
 # use of things like python, etc. during the test phase
-SYSROOT_DIRS_append_class-target = " \
+SYSROOT_DIRS:append:class-target = " \
     ${bindir} \
     ${sbindir} \
     ${base_bindir} \

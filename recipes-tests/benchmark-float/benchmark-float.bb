@@ -3,7 +3,7 @@ LICENSE = "MIT"
 
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
-FILESEXTRAPATH_prepend := "${THISDIR}/files:"
+FILESEXTRAPATH:prepend := "${THISDIR}/files:"
 SRC_URI = " \
 		file://benchmark-float.c \
 		file://libbenchmark-float.c \
@@ -24,8 +24,8 @@ do_install() {
 	install -m 755 ${S}/benchmark-float ${D}/${bindir}
 }
 
-FILES_${PN}-dev = ""
-FILES_${PN} += " \
+FILES:${PN}-dev = ""
+FILES:${PN} += " \
 	${bindir}/benchmark-float \
 	${libdir}/libbenchmark-float.so \
 	"

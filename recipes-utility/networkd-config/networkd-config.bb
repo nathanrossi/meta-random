@@ -10,12 +10,12 @@ S = "${WORKDIR}"
 WIRELESS_NETWORK ??= ""
 WIRELESS ??= ""
 
-RDEPENDS_${PN} += "wpa-supplicant"
+RDEPENDS:${PN} += "wpa-supplicant"
 
 SRC_URI += "file://wpa_supplicant-interface@.service"
 
-FILES_${PN} += "${systemd_unitdir}"
-RDEPENDS_${PN} += "glib-2.0-utils"
+FILES:${PN} += "${systemd_unitdir}"
+RDEPENDS:${PN} += "glib-2.0-utils"
 
 do_configure[noexec] = "1"
 do_compile[noexec] = "1"
@@ -23,7 +23,7 @@ do_compile[noexec] = "1"
 python () {
     if d.getVar("WIRELESS_NETWORK"):
         bb.build.addtask("do_generate_wpa_supplicant", "do_install", "do_compile", d)
-        d.appendVar("CONFFILES_${PN}", " ${sysconfdir}/wpa_supplicant/wpa_supplicant-common.conf")
+        d.appendVar("CONFFILES:${PN}", " ${sysconfdir}/wpa_supplicant/wpa_supplicant-common.conf")
 }
 
 python do_generate_wpa_supplicant () {

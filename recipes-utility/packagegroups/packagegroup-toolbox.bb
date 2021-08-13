@@ -14,7 +14,7 @@ FIRMWARE_DEFAULT = " \
 		linux-firmware-rtl8821 \
 		"
 
-RDEPENDS_${PN} = " \
+RDEPENDS:${PN} = " \
 		coreutils findutils \
 		tar xz unzip \
 		${@bb.utils.contains('DISTRO_FEATURES', 'systemd', 'systemd-analyze', '', d)} \
@@ -34,7 +34,7 @@ RDEPENDS_${PN} = " \
 		${FIRMWARE_DEFAULT} \
 		"
 
-RRECOMMENDS_${PN} = " \
+RRECOMMENDS:${PN} = " \
 		${MACHINE_EXTRA_RRECOMMENDS} \
 		"
 

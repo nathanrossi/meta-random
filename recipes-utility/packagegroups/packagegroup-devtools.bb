@@ -2,7 +2,7 @@ SUMMARY = "devtools packagegroup"
 
 inherit packagegroup
 
-RDEPENDS_${PN} = " \
+RDEPENDS:${PN} = " \
     coreutils findutils \
     tar xz unzip \
     p7zip \

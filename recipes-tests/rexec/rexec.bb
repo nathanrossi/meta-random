@@ -11,8 +11,8 @@ do_install() {
 	install -m 0755 ${WORKDIR}/rexec.py ${D}${bindir}/rexec
 }
 
-RDEPENDS_${PN} += "python3"
-FILES_${PN} += " \
+RDEPENDS:${PN} += "python3"
+FILES:${PN} += " \
 		${bindir}/rexec \
 		"
 

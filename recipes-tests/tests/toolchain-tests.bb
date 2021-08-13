@@ -46,5 +46,5 @@ do_install() {
 	done
 }
 
-FILES_${PN} += "${bindir}"
+FILES:${PN} += "${bindir}"
 
