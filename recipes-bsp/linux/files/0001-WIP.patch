@@ -1,0 +1,39 @@
+From 7ab9e3a1893889c7d7c4570a998d9033723c3080 Mon Sep 17 00:00:00 2001
+From: Nathan Rossi <nathan@nathanrossi.com>
+Date: Sat, 14 Aug 2021 23:22:18 +1000
+Subject: [PATCH] WIP
+
+---
+ drivers/net/dsa/mv88e6xxx/port.c | 2 ++
+ drivers/net/dsa/mv88e6xxx/smi.c  | 2 +-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
+index f77e2ee64a..e9139bacd3 100644
+--- a/drivers/net/dsa/mv88e6xxx/port.c
++++ b/drivers/net/dsa/mv88e6xxx/port.c
+@@ -723,9 +723,11 @@ int mv88e6341_port_set_cmode(struct mv88e6xxx_chip *chip, int port,
+ 		break;
+ 	}
+ 
++	/* HACK: broken set writable on 88e6141?
+ 	err = mv88e6341_port_set_cmode_writable(chip, port);
+ 	if (err)
+ 		return err;
++	*/
+ 
+ 	return mv88e6xxx_port_set_cmode(chip, port, mode, true);
+ }
+diff --git a/drivers/net/dsa/mv88e6xxx/smi.c b/drivers/net/dsa/mv88e6xxx/smi.c
+index 282fe08db0..f00c7df521 100644
+--- a/drivers/net/dsa/mv88e6xxx/smi.c
++++ b/drivers/net/dsa/mv88e6xxx/smi.c
+@@ -165,7 +165,7 @@ int mv88e6xxx_smi_init(struct mv88e6xxx_chip *chip,
+ {
+ 	if (chip->info->dual_chip)
+ 		chip->smi_ops = &mv88e6xxx_smi_dual_direct_ops;
+-	else if (sw_addr == 0)
++	else if (sw_addr == 0 || sw_addr == 0x10) // HACK: allow other phy devices at 0x0
+ 		chip->smi_ops = &mv88e6xxx_smi_direct_ops;
+ 	else if (chip->info->multi_chip)
+ 		chip->smi_ops = &mv88e6xxx_smi_indirect_ops;
