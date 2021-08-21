@@ -6,7 +6,6 @@
 // - LED/i2c devices
 // - PCIe
 // - AHCI
-// - switch
 
 / {
 	model = "Netgate SG3100";
@@ -23,10 +22,12 @@
 	};
 
 	soc {
-		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
-			  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
-			  MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
-			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000>;
+		ranges = <
+			MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
+			MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
+			MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
+			MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
+			>;
 	};
 };
 
@@ -84,10 +85,7 @@
 		compatible = "regulator-fixed";
 		pinctrl-0 = <&usb3_1_vbus_pins>;
 		pinctrl-names = "default";
-		// TODO: test
 		gpios = <&gpio1 0x1 GPIO_ACTIVE_HIGH>;
-		// gpios = <&i2c_gpio 14 GPIO_ACTIVE_HIGH>
-		// gpio = <0x21 0x1 0x00>;
 		regulator-name = "usb3_1_vbus";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
@@ -102,6 +100,25 @@
 &usb3_1 {
 	status = "okay";
 	usb-phy = <&usb3_1_phy>;
+};
+
+&pciec {
+	status = "okay";
+	/* mini-PCIe? */
+	pcie@1,0 {
+		status = "okay";
+	};
+
+	/* M.2 E? */
+	pcie@2,0 {
+		status = "okay";
+	};
+};
+
+/* J10 - M.2 B?, 2280 */
+/* J11 - M.2 B (w/USB)?, 2242 */
+&ahci0 {
+	status = "okay";
 };
 
 &eth0 {
@@ -149,7 +166,8 @@
 
 	switch0: switch0@10 {
 		compatible = "marvell,mv88e6141", "marvell,mv88e6085";
-		reg = <0x10>; /* single chip addressing mode */
+		single-chip-address;
+		reg = <0x10>; /* first port in single address mode */
 		dsa,member = <0 0>;
 
 		ports {

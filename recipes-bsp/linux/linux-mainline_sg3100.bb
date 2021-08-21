@@ -60,6 +60,9 @@ python do_generate_config:append:sg3100 () {
     config("IKCONFIG", "y")
     config("IKCONFIG_PROC", "y")
 
+    # compress initramfs with zstd
+    config("INITRAMFS_COMPRESSION_ZSTD", "y")
+
     # uart early debug
     config("DEBUG_LL", "y")
     config("DEBUG_MVEBU_UART0_ALTERNATE", "y")
@@ -67,6 +70,9 @@ python do_generate_config:append:sg3100 () {
     # rtc
     config("RTC_CLASS", "y")
     config("RTC_DRV_ARMADA38X", "y")
+
+    # sata/ahci
+    config("AHCI_MVEBU", "y")
 
     # DSA
     config("NET_DSA", "y")
