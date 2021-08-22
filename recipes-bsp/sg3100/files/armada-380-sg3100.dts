@@ -4,7 +4,6 @@
 
 // TODO:
 // - LED/i2c devices
-// - PCIe
 // - AHCI
 
 / {
@@ -104,12 +103,12 @@
 
 &pciec {
 	status = "okay";
-	/* mini-PCIe? */
+	/* mini-PCIe */
 	pcie@1,0 {
 		status = "okay";
 	};
 
-	/* M.2 E? */
+	/* M.2 E */
 	pcie@2,0 {
 		status = "okay";
 	};
