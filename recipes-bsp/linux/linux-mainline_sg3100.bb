@@ -71,6 +71,9 @@ python do_generate_config:append:sg3100 () {
     config("RTC_CLASS", "y")
     config("RTC_DRV_ARMADA38X", "y")
 
+    # leds
+    config("LEDS_IS31FL319X", "y")
+
     # sata/ahci
     config("AHCI_MVEBU", "y")
 

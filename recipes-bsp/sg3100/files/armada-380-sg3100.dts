@@ -2,10 +2,6 @@
 #include "armada-388.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
-// TODO:
-// - LED/i2c devices
-// - AHCI
-
 / {
 	model = "Netgate SG3100";
 	compatible = "netgate,sg3100", "marvell,armada388",
@@ -46,25 +42,76 @@
 	pinctrl-names = "default";
 	clock-frequency = <200000>;
 
-/*
-	pca95520 {
-		compatible = "nxp,pca9552";
-		reg = <0x60>;
-		gpio-controller;
-		#gpio-cells = <2>;
-	};
-*/
-
-/*
-	is31f13199 {
-		compatible = "issi,is31f13199";
+	is31fl3199@67 {
+		compatible = "issi,is31fl3199";
 		reg = <0x67>;
-		gpio-controller;
-		#gpio-cells = <2>;
+
+		diamond_red: led@1 {
+			label = "diamond:red";
+			reg = <1>;
+			led-max-microamp = <5000>;
+		};
+		diamond_green: led@2 {
+			label = "diamond:green";
+			reg = <2>;
+			led-max-microamp = <5000>;
+		};
+		diamond_blue: led@3 {
+			label = "diamond:blue";
+			reg = <3>;
+			led-max-microamp = <5000>;
+		};
+
+		square_red: led@4 {
+			label = "square:red";
+			reg = <4>;
+			led-max-microamp = <5000>;
+		};
+		square_green: led@5 {
+			label = "square:green";
+			reg = <5>;
+			led-max-microamp = <5000>;
+		};
+		square_blue: led@6 {
+			label = "square:blue";
+			reg = <6>;
+			led-max-microamp = <5000>;
+		};
+
+		circle_red: led@7 {
+			label = "circle:red";
+			reg = <7>;
+			led-max-microamp = <5000>;
+		};
+		circle_green: led@8 {
+			label = "circle:green";
+			reg = <8>;
+			led-max-microamp = <5000>;
+		};
+		circle_blue: led@9 {
+			label = "circle:blue";
+			reg = <9>;
+			led-max-microamp = <5000>;
+		};
 	};
-*/
 };
 
+// causes issues with reset? wrong mpp pinmux?
+/*
+&spi0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins>;
+
+	spi-flash@0 {
+		compatible = "winbond,w25q32jv", "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <20000000>;
+	};
+};
+*/
+
+/* eMMC */
 &sdhci {
 	status = "okay";
 	no-1-8-v;
@@ -72,6 +119,7 @@
 	cd-inverted;
 	wp-inverted;
 	bus-width = <0x08>;
+	non-removable;
 };
 
 / {
