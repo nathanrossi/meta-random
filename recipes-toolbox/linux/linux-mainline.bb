@@ -21,6 +21,9 @@ SRCREV = "e49d033bddf5b565044e2abe4241353959bc9120"
 PV = "5.12-rc6+git${SRCPV}"
 SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;protocol=https;branch=${BRANCH}"
 
+# Build all kernel device trees with overlay/symbol support
+KERNEL_DTC_FLAGS = "-@"
+
 python do_generate_config() {
     def append(f, name, val):
         with open(d.expand("${B}/.config"), "a") as f:
@@ -110,6 +113,11 @@ python do_generate_config:append:rpi () {
         f.write("CONFIG_HW_RANDOM=y\n")
         f.write("CONFIG_HW_RANDOM_BCM2835=y\n")
         f.write("CONFIG_HW_RANDOM_IPROC_RNG200=y\n")
+
+        # of/dtb overlay support
+        append(f, "DTC", "y")
+        append(f, "OF", "y")
+        append(f, "OF_OVERLAY", "y")
 
         append(f, "USB_CONFIGFS", "y")
         append(f, "USB_CONFIGFS_F_FS", "y")
