@@ -70,8 +70,8 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 	manager.add_service(&mut rt, DeviceManagerService::new(), true);
 
 	// add serial consoles
-	manager.add_service(&mut rt, ConsoleService::new("ttyACM0", 115200, true), true);
-	manager.add_service(&mut rt, ConsoleService::new("ttyAMA0", 115200, true), true); // qemuarm serial
+	// manager.add_service(&mut rt, ConsoleService::new("ttyACM0", 115200, true), true);
+	// manager.add_service(&mut rt, ConsoleService::new("ttyAMA0", 115200, true), true);
 	// manager.add_service(&mut rt, ConsoleService::new("ttyUSB0", 115200, true), true);
 
 	rt.logger.service_log("init", "usb device class");

@@ -34,37 +34,39 @@ impl SSHService
 
 	fn start_keygen(&mut self, runtime : &mut Runtime, index : usize) -> State
 	{
-		if index >= self.keys.len() {
-			return State::Error;
-		}
+		let mut next = index;
+		while next < self.keys.len() {
+			let key = &self.keys[next];
 
-		let key = &self.keys[index];
-
-		let keydir = "/etc/ssh";
-		if index == 0 {
-			if let Err(_) = std::fs::create_dir_all(keydir) {
-				runtime.logger.service_log("sshd", &format!("failed to create key directory {}", keydir));
-				return State::Error;
+			let keydir = "/etc/ssh";
+			if next == 0 {
+				if let Err(_) = std::fs::create_dir_all(keydir) {
+					runtime.logger.service_log("sshd", &format!("failed to create key directory {}", keydir));
+					return State::Error;
+				}
 			}
-		}
 
-		let keyfile : PathBuf = [keydir, &format!("ssh_host_{}_key", key)].iter().collect();
-		if !keyfile.exists() {
-			let mut command = Command::new("ssh-keygen");
-			command.arg("-q")
-				.arg("-f").arg(keyfile)
-				.arg("-N").arg("")
-				.arg("-t").arg(key);
+			let keyfile : PathBuf = [keydir, &format!("ssh_host_{}_key", key)].iter().collect();
+			if !keyfile.exists() {
+				let mut command = Command::new("ssh-keygen");
+				command.arg("-q")
+					.arg("-f").arg(keyfile)
+					.arg("-N").arg("")
+					.arg("-t").arg(key);
 
-			if let Ok(child) = command.spawn() {
-				runtime.logger.service_log("sshd", &format!("generating {} key", key));
-				return State::KeygenRunning(index, child);
-			} else {
-				runtime.logger.service_log("sshd", &format!("failed to create key {}", key));
-				return State::Error;
+				if let Ok(child) = command.spawn() {
+					runtime.logger.service_log("sshd", &format!("generating {} key", key));
+					return State::KeygenRunning(next, child);
+				} else {
+					runtime.logger.service_log("sshd", &format!("failed to create key {}", key));
+					return State::Error;
+				}
 			}
+
+			// key is already valid, skip
+			next = next + 1;
 		}
-		return State::Error;
+		return self.start_sshd(runtime);
 	}
 
 	fn start_sshd(&mut self, runtime : &mut Runtime) -> State
@@ -110,11 +112,7 @@ impl Service for SSHService
 	fn start(&mut self, runtime : &mut Runtime)
 	{
 		if let State::None = self.state {
-			if self.keys.len() != 0 {
-				self.state = self.start_keygen(runtime, 0);
-			} else {
-				self.state = self.start_sshd(runtime);
-			}
+			self.state = self.start_keygen(runtime, 0);
 		}
 	}
 
@@ -146,11 +144,7 @@ impl Service for SSHService
 						}
 
 						let next = *index + 1;
-						if next < self.keys.len() {
-							self.state = self.start_keygen(runtime, next);
-						} else {
-							self.state = self.start_sshd(runtime);
-						}
+						self.state = self.start_keygen(runtime, next);
 						return true;
 					}
 					_ => {}
