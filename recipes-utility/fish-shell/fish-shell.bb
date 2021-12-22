@@ -3,7 +3,7 @@ HOMEPAGE = "https://fishshell.com"
 LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://COPYING;md5=937511e42dab6bf5fc0786f06fd377a8"
 
-SRC_URI = "git://github.com/fish-shell/fish-shell.git;protocol=https"
+SRC_URI = "git://github.com/fish-shell/fish-shell.git;protocol=https;branch=master"
 SRCREV = "0314b0f1d94299903dc193f2f57529b56a42a96e"
 PV = "3.1.2+git${SRCPV}"
 
