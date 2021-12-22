@@ -30,24 +30,22 @@ python do_generate_config() {
             f.write("CONFIG_{}={}\n".format(name, val))
 
     def config(name, val):
+        cfgname = "CONFIG_{}".format(name)
+        cfgcomment = "# " + cfgname
+        data = ""
         with open(d.expand("${B}/.config"), "r") as source:
-            with open(d.expand("${B}/.config.tmp"), "w") as dest:
-                value = "CONFIG_{}".format(name)
-                comment = "# " + value
+            matched = False
+            for l in source:
+                if l.startswith(cfgname + "=") or l.startswith(cfgcomment + " "):
+                    data += "CONFIG_{}={}\n".format(name, val)
+                    matched = True
+                else:
+                    data += l
+            if not matched: # append if not set
+                data += "CONFIG_{}={}\n".format(name, val)
 
-                matched = False
-                for l in source:
-                    if l.startswith(value) or l.startswith(comment):
-                        dest.write("CONFIG_{}={}\n".format(name, val))
-                        matched = True
-                    else:
-                        dest.write(l)
-
-                if not matched: # append if not set
-                    dest.write("CONFIG_{}={}\n".format(name, val))
-
-        os.remove(d.expand("${B}/.config"))
-        os.rename(d.expand("${B}/.config.tmp"), d.expand("${B}/.config"))
+        with open(d.expand("${B}/.config"), "w") as dest:
+            dest.write(data)
 
     with open(d.expand("${B}/.config"), "w") as f:
         with open(d.expand("${S}/arch/${ARCH}/configs/${KBUILD_DEFCONFIG}"), "r") as src:
