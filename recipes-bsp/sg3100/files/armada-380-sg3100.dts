@@ -216,6 +216,7 @@
 		single-chip-address;
 		reg = <0x10>; /* first port in single address mode */
 		dsa,member = <0 0>;
+		status = "okay";
 
 		ports {
 			#address-cells = <1>;
