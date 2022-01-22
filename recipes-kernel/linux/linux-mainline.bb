@@ -198,12 +198,3 @@ python do_generate_config:append:qemuarm () {
 }
 KBUILD_DEFCONFIG:qemuarm = "multi_v7_defconfig"
 COMPATIBLE_MACHINE:qemuarm = ".*"
-
-python do_generate_config:append:toolbox-x64 () {
-    with config() as (enable, disable, module):
-        enable("EFI_STUB")
-        # allow cpu to be trusted to provide entropy
-        enable("RANDOM_TRUST_CPU")
-}
-KBUILD_DEFCONFIG:toolbox-x64 = "x86_64_defconfig"
-COMPATIBLE_MACHINE:toolbox-x64 = ".*"
