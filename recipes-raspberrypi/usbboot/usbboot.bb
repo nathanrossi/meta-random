@@ -5,7 +5,7 @@ SECTION = "bsp"
 LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=e3fc50a88d0a364313df4b21ef20c29e"
 
-SRC_URI = "git://github.com/raspberrypi/usbboot;protocol=https"
+SRC_URI = "git://github.com/raspberrypi/usbboot;protocol=https;branch=master"
 SRCREV = "d3760e119385a179765f43a50a8e051a44127c25"
 PV = "0+git${SRCPV}"
 
