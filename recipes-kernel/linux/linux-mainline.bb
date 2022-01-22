@@ -106,9 +106,6 @@ python do_generate_config:append:rpi () {
         enable("BCM2711_THERMAL")
         enable("BCM2835_THERMAL")
 
-        # USB ethernet
-        enable("USB_LAN78XX")
-
         # framebuffer console
         enable("DRM")
         enable("DRM_VC4")
@@ -119,6 +116,15 @@ python do_generate_config:append:rpi () {
         if "neon" in d.getVar("TUNE_FEATURES"):
             enable("NEON")
             enable("KERNEL_MODE_NEON")
+
+        # USB ethernet
+        enable("USB_LAN78XX")
+        # pi4 ethernet
+        enable("BCMGENET")
+
+        # pi4 pcie
+        enable("PCI")
+        enable("PCIE_BRCMSTB")
 
         # camera
         enable("STAGING")
