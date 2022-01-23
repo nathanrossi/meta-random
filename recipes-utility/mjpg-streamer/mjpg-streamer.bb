@@ -2,9 +2,9 @@ SUMMARY = "Stream UVC, or similar as MJPG frames over HTTP"
 LICENSE = "GPLv2"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=751419260aa954499f7abaabaa882bbe"
 
-SRC_URI = "git://github.com/jacksonliam/mjpg-streamer.git;protocol=https;branch=master"
-SRCREV = "85f89a8c321e799fabb1693c5d133f3fb48ee748"
-PV = "0.4+git${SRCPV}"
+SRC_URI = "git://github.com/jacksonliam/mjpg-streamer;protocol=https;branch=master"
+SRCREV = "310b29f4a94c46652b20c4b7b6e5cf24e532af39"
+PV = "1.0.0+git${SRCPV}"
 
 S = "${WORKDIR}/git/mjpg-streamer-experimental"
 
@@ -20,10 +20,10 @@ PACKAGECONFIG[uvc] = "-DPLUGIN_INPUT_UVC=ON,-DPLUGIN_INPUT_UVC=OFF,v4l-utils"
 PACKAGECONFIG[raspicam] = "-DPLUGIN_INPUT_RASPICAM=ON,-DPLUGIN_INPUT_RASPICAM=OFF,userland"
 
 # Make it rpi specific due to depending on rpi binaries
-PACKAGECONFIG:append:rpi = "${@bb.utils.contains("MACHINE_FEATURES", "vc4graphics", " raspicam", "", d)}"
-PACKAGE_ARCH:rpi = "${MACHINE_ARCH}"
+# PACKAGECONFIG:append:rpi = "${@bb.utils.contains("MACHINE_FEATURES", "vc4graphics", " raspicam", "", d)}"
+# PACKAGE_ARCH:rpi = "${MACHINE_ARCH}"
 # needs to link with libmmal_vc_client.so
-ASNEEDED:rpi = ""
+# ASNEEDED:rpi = ""
 
 do_configure:prepend() {
     # HACK: replace include file check for raspi
