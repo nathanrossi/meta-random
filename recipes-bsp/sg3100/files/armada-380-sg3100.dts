@@ -182,9 +182,9 @@
 
 &eth2 {
 	status = "okay";
-	phy-mode = "sgmii";
+	phy-mode = "2500base-x";
 	fixed-link {
-		speed = <1000>;
+		speed = <2500>;
 		full-duplex;
 	};
 };
@@ -254,9 +254,9 @@
 				reg = <5>;
 				label = "cpu";
 				ethernet = <&eth2>;
-				phy-mode = "sgmii";
+				phy-mode = "2500base-x";
 				fixed-link {
-					speed = <1000>;
+					speed = <2500>;
 					full-duplex;
 				};
 			};
