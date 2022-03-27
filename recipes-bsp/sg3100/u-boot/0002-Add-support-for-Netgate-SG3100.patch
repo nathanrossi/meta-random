@@ -1,0 +1,871 @@
+From 89462d76611321f518ad45344181221870613856 Mon Sep 17 00:00:00 2001
+From: Nathan Rossi <nathan@nathanrossi.com>
+Date: Sun, 27 Mar 2022 18:05:27 +1000
+Subject: [PATCH] Add support for Netgate SG3100
+
+Signed-off-by: Nathan Rossi <nathan@nathanrossi.com>
+---
+ arch/arm/dts/Makefile              |   1 +
+ arch/arm/dts/armada-388-sg3100.dts | 338 +++++++++++++++++++++++++++++
+ arch/arm/mach-mvebu/Kconfig        |  12 +
+ board/netgate/sg3100/Makefile      |   3 +
+ board/netgate/sg3100/kwbimage.cfg  |  13 ++
+ board/netgate/sg3100/sg3100.c      | 224 +++++++++++++++++++
+ configs/sg3100_defconfig           |  74 +++++++
+ include/configs/sg3100.h           |  97 +++++++++
+ 8 files changed, 762 insertions(+)
+ create mode 100644 arch/arm/dts/armada-388-sg3100.dts
+ create mode 100644 board/netgate/sg3100/Makefile
+ create mode 100644 board/netgate/sg3100/kwbimage.cfg
+ create mode 100644 board/netgate/sg3100/sg3100.c
+ create mode 100644 configs/sg3100_defconfig
+ create mode 100644 include/configs/sg3100.h
+
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index b3e2a9c9d7..023fe6937c 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -237,6 +237,7 @@ dtb-$(CONFIG_ARCH_MVEBU) +=			\
+ 	armada-388-clearfog.dtb			\
+ 	armada-388-gp.dtb			\
+ 	armada-388-helios4.dtb			\
++	armada-388-sg3100.dtb			\
+ 	armada-38x-controlcenterdc.dtb		\
+ 	armada-7040-db-nand.dtb			\
+ 	armada-7040-db.dtb			\
+diff --git a/arch/arm/dts/armada-388-sg3100.dts b/arch/arm/dts/armada-388-sg3100.dts
+new file mode 100644
+index 0000000000..89343bc396
+--- /dev/null
++++ b/arch/arm/dts/armada-388-sg3100.dts
+@@ -0,0 +1,338 @@
++/*
++ * Device Tree file for Netgate SG3100
++ */
++
++/dts-v1/;
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/leds/common.h>
++#include "armada-388.dtsi"
++
++/ {
++	model = "Netgate SG3100";
++	compatible = "netgate,sg3100", "marvell,armada388",
++		"marvell,armada385", "marvell,armada380";
++
++	aliases {
++		ethernet1 = &eth0;
++		ethernet2 = &eth1;
++		ethernet3 = &eth2;
++		i2c0 = &i2c0;
++		mmc0 = &sdhci;
++		pci0 = &pciec;
++		spi0 = &spi0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	memory {
++		device_type = "memory";
++		reg = <0x00000000 0x80000000>; /* 2 GiB */
++	};
++
++	soc {
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
++				  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
++				  MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
++				  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
++				  MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000>;
++
++		internal-regs {
++			/* serdes common phy */
++			phy@18300 {
++				compatible = "marvell,armada-380-comphy";
++				reg-names = "comphy", "conf";
++				reg = <0x18300 0x100 0x18460 0x04>;
++				#address-cells = <0x01>;
++				#size-cells = <0x00>;
++
++				phy@0 {
++					reg = <0x00>;
++					#phy-cells = <0x01>;
++				};
++
++				phy@1 {
++					reg = <0x01>;
++					#phy-cells = <0x01>;
++				};
++
++				phy@2 {
++					reg = <0x02>;
++					#phy-cells = <0x01>;
++				};
++
++				phy@3 {
++					reg = <0x03>;
++					#phy-cells = <0x01>;
++				};
++
++				phy@4 {
++					reg = <0x04>;
++					#phy-cells = <0x01>;
++				};
++
++				phy@5 {
++					reg = <0x05>;
++					#phy-cells = <0x01>;
++				};
++			};
++		};
++	};
++};
++
++&rtc {
++	status = "okay";
++};
++
++&uart0 {
++	status = "okay";
++	u-boot,dm-pre-reloc;
++};
++
++&uart1 {
++	status = "okay";
++};
++
++&i2c0 {
++	status = "okay";
++	pinctrl-0 = <&i2c0_pins>;
++	pinctrl-names = "default";
++	clock-frequency = <200000>;
++
++	is31fl3199@67 {
++		compatible = "issi,is31fl3199";
++		reg = <0x67>;
++
++		diamond_red: led@1 {
++			label = "diamond:red";
++			reg = <1>;
++			led-max-microamp = <5000>;
++		};
++		diamond_green: led@2 {
++			label = "diamond:green";
++			reg = <2>;
++			led-max-microamp = <5000>;
++		};
++		diamond_blue: led@3 {
++			label = "diamond:blue";
++			reg = <3>;
++			led-max-microamp = <5000>;
++		};
++
++		square_red: led@4 {
++			label = "square:red";
++			reg = <4>;
++			led-max-microamp = <5000>;
++		};
++		square_green: led@5 {
++			label = "square:green";
++			reg = <5>;
++			led-max-microamp = <5000>;
++		};
++		square_blue: led@6 {
++			label = "square:blue";
++			reg = <6>;
++			led-max-microamp = <5000>;
++		};
++
++		circle_red: led@7 {
++			label = "circle:red";
++			reg = <7>;
++			led-max-microamp = <5000>;
++		};
++		circle_green: led@8 {
++			label = "circle:green";
++			reg = <8>;
++			led-max-microamp = <5000>;
++		};
++		circle_blue: led@9 {
++			label = "circle:blue";
++			reg = <9>;
++			led-max-microamp = <5000>;
++		};
++	};
++};
++
++&spi0 {
++	pinctrl-0 = <&spi0_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++	u-boot,dm-pre-reloc;
++
++	spi-flash@0 {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		compatible = "winbond,w25q32jv", "jedec,spi-nor";
++		reg = <0>;
++		spi-max-frequency = <20000000>;
++		u-boot,dm-pre-reloc;
++	};
++};
++
++&sdhci {
++	status = "okay";
++	no-1-8-v;
++	dat3-cd;
++	cd-inverted;
++	wp-inverted;
++	bus-width = <0x8>;
++	non-removable;
++};
++
++&pciec {
++	status = "okay";
++	/* mini-PCIe */
++	pcie@1,0 { status = "okay"; };
++	/* M.2 E */
++	pcie@2,0 { status = "okay"; };
++};
++
++/* J10 - M.2 B?, 2280 */
++/* J11 - M.2 B (w/USB)?, 2242 */
++&ahci0 {
++	status = "okay";
++};
++
++/ {
++	usb3_1_vbus: regulator-usb1-vbus {
++		compatible = "regulator-fixed";
++		pinctrl-0 = <&usb3_1_vbus_pins>;
++		pinctrl-names = "default";
++		gpios = <&gpio1 0x1 GPIO_ACTIVE_HIGH>;
++		regulator-name = "usb3_1_vbus";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		enable-active-high;
++	};
++
++	usb3_1_phy: usb3_1_phy {
++		compatible = "usb-nop-xceiv";
++		vcc-supply = <&usb3_1_vbus>;
++		#phy-cells = <0>;
++	};
++};
++
++&usb3_1 {
++	status = "okay";
++	usb-phy = <&usb3_1_phy>;
++};
++
++&pinctrl {
++	usb3_1_vbus_pins: usb3_1-vbus-pins {
++		marvell,pins = "mpp33";
++		marvell,function = "gpio";
++	};
++};
++
++&eth0 {
++	status = "okay";
++	phy-mode = "rgmii-id";
++	phy = <&phy0>;
++};
++
++&eth1 {
++	status = "okay";
++	phy-mode = "rgmii-id";
++	phy = <&phy1>;
++};
++
++&eth2 {
++	status = "okay";
++	phy-mode = "2500base-x";
++	fixed-link {
++		speed = <2500>;
++		full-duplex;
++	};
++};
++
++&mdio {
++	status = "okay";
++	pinctrl-0 = <&mdio_pins>;
++	pinctrl-names = "default";
++
++	phy0: ethernet-phy@0 {
++		status = "okay";
++		reg = <0>;
++	};
++
++	phy1: ethernet-phy@1 {
++		status = "okay";
++		reg = <1>;
++	};
++
++	switch0: switch0@10 {
++		compatible = "marvell,mv88e6141", "marvell,mv88e6085";
++		single-chip-address;
++		reg = <0x10>; /* first port in single address mode */
++		dsa,member = <0 0>;
++		status = "okay";
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@1 {
++				reg = <1>;
++				label = "lan1";
++				phy-mode = "gmii";
++				phy-handle = <&switch0phy0>;
++			};
++
++			port@2 {
++				reg = <2>;
++				label = "lan2";
++				phy-mode = "gmii";
++				phy-handle = <&switch0phy1>;
++			};
++
++			port@3 {
++				reg = <3>;
++				label = "lan3";
++				phy-mode = "gmii";
++				phy-handle = <&switch0phy2>;
++			};
++
++			port@4 {
++				reg = <4>;
++				label = "lan4";
++				phy-mode = "gmii";
++				phy-handle = <&switch0phy3>;
++			};
++
++			port@5 {
++				reg = <5>;
++				label = "cpu";
++				ethernet = <&eth2>;
++				phy-mode = "2500base-x";
++				fixed-link {
++					speed = <2500>;
++					full-duplex;
++				};
++			};
++		};
++
++		mdio {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			switch0phy0: switch0phy0@11 {
++				reg = <0x11>;
++			};
++
++			switch0phy1: switch0phy1@12 {
++				reg = <0x12>;
++			};
++
++			switch0phy2: switch0phy2@13 {
++				reg = <0x13>;
++			};
++
++			switch0phy3: switch0phy3@14 {
++				reg = <0x14>;
++			};
++		};
++	};
++};
++
+diff --git a/arch/arm/mach-mvebu/Kconfig b/arch/arm/mach-mvebu/Kconfig
+index d23cc0c760..49b21ef0bc 100644
+--- a/arch/arm/mach-mvebu/Kconfig
++++ b/arch/arm/mach-mvebu/Kconfig
+@@ -56,6 +56,11 @@ config SYS_MVEBU_PLL_CLOCK
+ 	default "2000000000" if ARMADA_XP || ARMADA_3700 || ARMADA_8K || ARMADA_MSYS
+ 	default "1000000000" if ARMADA_38X || ARMADA_375
+ 
++config SPL_TEXT_BASE
++	depends on SPL
++	default 0x40000030 if ARMADA_38X && !SECURED_MODE_IMAGE
++	default 0x40002614 if ARMADA_38X && SECURED_MODE_IMAGE
++
+ # Armada XP/38x SoC types...
+ config MV78230
+ 	bool
+@@ -103,6 +108,10 @@ config TARGET_HELIOS4
+ 	bool "Support Helios4"
+ 	select 88F6820
+ 
++config TARGET_SG3100
++	bool "Support Netgate SG3100"
++	select 88F6820
++
+ config TARGET_MVEBU_ARMADA_37XX
+ 	bool "Support Armada 37xx platforms"
+ 	select ARMADA_3700
+@@ -216,6 +225,7 @@ config DDR_LOG_LEVEL
+ config SYS_BOARD
+ 	default "clearfog" if TARGET_CLEARFOG
+ 	default "helios4" if TARGET_HELIOS4
++	default "sg3100" if TARGET_SG3100
+ 	default "mvebu_armada-37xx" if TARGET_MVEBU_ARMADA_37XX
+ 	default "db-88f6720" if TARGET_DB_88F6720
+ 	default "db-88f6820-gp" if TARGET_DB_88F6820_GP
+@@ -236,6 +246,7 @@ config SYS_BOARD
+ config SYS_CONFIG_NAME
+ 	default "clearfog" if TARGET_CLEARFOG
+ 	default "helios4" if TARGET_HELIOS4
++	default "sg3100" if TARGET_SG3100
+ 	default "mvebu_armada-37xx" if TARGET_MVEBU_ARMADA_37XX
+ 	default "db-88f6720" if TARGET_DB_88F6720
+ 	default "db-88f6820-gp" if TARGET_DB_88F6820_GP
+@@ -265,6 +276,7 @@ config SYS_VENDOR
+ 	default "Marvell" if TARGET_MVEBU_DB_88F7040
+ 	default "solidrun" if TARGET_CLEARFOG
+ 	default "kobol" if TARGET_HELIOS4
++	default "netgate" if TARGET_SG3100
+ 	default "Synology" if TARGET_DS414
+ 	default "CZ.NIC" if TARGET_TURRIS_OMNIA
+ 	default "CZ.NIC" if TARGET_TURRIS_MOX
+diff --git a/board/netgate/sg3100/Makefile b/board/netgate/sg3100/Makefile
+new file mode 100644
+index 0000000000..693b9f63bb
+--- /dev/null
++++ b/board/netgate/sg3100/Makefile
+@@ -0,0 +1,3 @@
++# SPDX-License-Identifier: GPL-2.0+
++
++obj-y	:= sg3100.o
+diff --git a/board/netgate/sg3100/kwbimage.cfg b/board/netgate/sg3100/kwbimage.cfg
+new file mode 100644
+index 0000000000..32e1cc01c9
+--- /dev/null
++++ b/board/netgate/sg3100/kwbimage.cfg
+@@ -0,0 +1,13 @@
++# Armada 38x uses version 1 image format
++VERSION		1
++
++# enable uart debug
++DEBUG 1
++BAUDRATE 115200
++
++# Boot Media configurations
++BOOT_FROM spi
++
++# Binary Header (bin_hdr) with DDR3 training code
++BINARY spl/u-boot-spl.bin 0000005b 00000068
++
+diff --git a/board/netgate/sg3100/sg3100.c b/board/netgate/sg3100/sg3100.c
+new file mode 100644
+index 0000000000..4000306a9d
+--- /dev/null
++++ b/board/netgate/sg3100/sg3100.c
+@@ -0,0 +1,224 @@
++// SPDX-License-Identifier: GPL-2.0+
++#include <common.h>
++#include <env.h>
++#include <i2c.h>
++#include <init.h>
++#include <miiphy.h>
++#include <net.h>
++#include <netdev.h>
++#include <usb.h>
++#include <asm/io.h>
++#include <asm/arch/cpu.h>
++#include <asm/arch/soc.h>
++#include <linux/bitops.h>
++#include <linux/delay.h>
++#include <spi_flash.h>
++#include <fdtdec.h>
++
++#include "../drivers/ddr/marvell/a38x/ddr3_init.h"
++#include <../serdes/a38x/high_speed_env_spec.h>
++
++DECLARE_GLOBAL_DATA_PTR;
++
++/* MPP | Function Index | Function Name
++ *  0  |              1 | UA0_RXD (in)
++ *  1  |              1 | UA0_TXD (out)
++ *  2  |              1 | I2C0_SCK (in/out)
++ *  3  |              1 | I2C0_SDA (in/out)
++ *  4  |              1 | SMI_MDC (out)
++ *  5  |              1 | SMI_MDIO (in/out)
++ *  6  |              1 | GE0_TXCLKOUT (out)
++ *  7  |              1 | GE0_TXD[0] (out)
++ */
++#define BOARD_MPP00_07		0x11111111
++
++/* MPP | Function Index | Function Name
++ *  8  |              1 | GE0_TXD[1] (out)
++ *  9  |              1 | GE0_TXD[2] (out)
++ * 10  |              1 | GE0_TXD[3] (out)
++ * 11  |              1 | GE0_TXCTL (out)
++ * 12  |              1 | GE0_RXD[0] (in)
++ * 13  |              1 | GE0_RXD[1] (in)
++ * 14  |              1 | GE0_RXD[2] (in)
++ * 15  |              1 | GE0_RXD[3] (in)
++ */
++#define BOARD_MPP08_15		0x11111111
++
++/* MPP | Function Index | Function Name
++ * 16  |              1 | GE0_RXCTL (in)
++ * 17  |              1 | GE0_RXCLK (in)
++ * 18  |              0 | GPIO[18] (in/out), IO_INT# (in)
++ * 19  |              6 | UA1_RXD (in)
++ * 20  |              6 | UA1_TXD (out)
++ * 21  |              2 | GE1_RXD[0] (in)
++ * 22  |              1 | SPI0_MOSI (out)
++ * 23  |              1 | SPI0_SCK (out)
++ */
++#define BOARD_MPP16_23		0x11266011
++
++/* MPP | Function Index | Function Name
++ * 24  |              1 | SPI0_MISO (in)
++ * 25  |              1 | SPI0_CSn[0] (out)
++ * 26  |              1 | SPI0_CSn[2] (out)
++ * 27  |              2 | GE1_TXCLKOUT (out)
++ * 28  |              2 | GE1_TXD[0] (out)
++ * 29  |              2 | GE1_TXD[1] (out)
++ * 30  |              2 | GE1_TXD[2] (out)
++ * 31  |              2 | GE1_TXD[3] (out)
++ */
++#define BOARD_MPP24_31		0x22222111
++
++/* MPP | Function Index | Function Name
++ * 32  |              2 | GE1_TXCTL (out)
++ * 33  |              0 | GPIO[33] (in/out), USB3_PWREN (out)
++ * 34  |              0 | GPIO[34] (in/out), USB3_OC# (in)
++ * 35  |              0 | GPIO[35] (in/out), USB2_PWREN (out)
++ * 36  |              0 | GPIO[36] (in/out), USB2_OC# (in)
++ * 37  |              2 | GE1_RXCLK (in)
++ * 38  |              2 | GE1_RXD[1] (in)
++ * 39  |              2 | GE1_RXD[2] (in)
++ */
++#define BOARD_MPP32_39		0x22200002
++
++/* MPP | Function Index | Function Name
++ * 40  |              2 | GE1_RXD[3] (in)
++ * 41  |              2 | GE1_RXCTL (in)
++ * 42  |              0 | GPIO[42] (in/out), M2-B1-WDIS1_V2P5# (in)
++ * 43  |              0 | GPIO[43] (in/out), SOC_PGIO_MR# (in)
++ * 44  |              1 | SATA0_PRESENT_ACTIVEn (out)
++ * 45  |              0 | GPIO[45] (in/out), DDR_ALERT# (in)
++ * 46  |              2 | PCIe0_RSTOUTn (iout)
++ * 47  |              2 | SATA1_PRESENT_ACTIVEn (out)
++ */
++#define BOARD_MPP40_47		0x22010022
++
++/* MPP | Function Index | Function Name
++ * 48  |              5 | SD_D[4] (in/out)
++ * 49  |              5 | SD_D[5] (in/out)
++ * 50  |              5 | SD_CMD (in/out)
++ * 51  |              0 | GPIO[51] (in/out), SD_PRESENT# (in)
++ * 52  |              5 | SD_D[6] (in/out)
++ * 53  |              5 | SD_D[7] (in/out)
++ * 54  |              5 | SD_D[3] (in/out)
++ * 55  |              5 | SD_D[0] (in/out)
++ */
++#define BOARD_MPP48_55		0x55550555
++
++/* MPP | Function Index | Function Name
++ * 56  |              0 | GPIO[56] (in/out), M2_E_WDIS2# (in/out)
++ * 57  |              5 | SD_CLK (out)
++ * 58  |              5 | SD_D[1] (in/out)
++ * 59  |              5 | SD_D[2] (in/out)
++ */
++#define BOARD_MPP56_63		0x00005550
++
++/*
++ * 18  |              0 | GPIO[18] (in/out), IO_INT# (in)
++ */
++#define BOARD_GPP_OUT_ENA_LOW	0xFFFFFFFF
++#define BOARD_GPP_POL_LOW	(BIT(18))
++#define BOARD_GPP_OUT_VAL_LOW	0x0
++
++/*
++ * 33  |              0 | GPIO[33] (in/out), USB3_PWREN (out)
++ * 34  |              0 | GPIO[34] (in/out), USB3_OC# (in)
++ * 35  |              0 | GPIO[35] (in/out), USB2_PWREN (out)
++ * 36  |              0 | GPIO[36] (in/out), USB2_OC# (in)
++ * 42  |              0 | GPIO[42] (in/out), M2-B1-WDIS1_V2P5# (in)
++ * 43  |              0 | GPIO[43] (in/out), SOC_GPIO_MR# (in)
++ * 45  |              0 | GPIO[45] (in/out), DDR_ALERT# (in)
++ * 51  |              0 | GPIO[51] (in/out), SD_PRESENT# (in)
++ * 56  |              0 | GPIO[56] (in/out), M2_E_WDIS2# (in/out)
++ */
++#define BOARD_GPP_OUT_ENA_MID	(~(BIT(1) | BIT(3)))
++#define BOARD_GPP_OUT_VAL_MID	(BIT(1) | BIT(3))
++#define BOARD_GPP_POL_MID	(BIT(2) | BIT(4) | BIT(10) | BIT(11) | BIT(13) | BIT(19) | BIT(24))
++
++/* SERDES map */
++static struct serdes_map board_serdes_map[] = {
++	{SATA0,      SERDES_SPEED_3_GBPS,     SERDES_DEFAULT_MODE, 0, 0},
++	{PEX0,       SERDES_SPEED_5_GBPS,     PEX_ROOT_COMPLEX_X1, 0, 0},
++	{SATA1,      SERDES_SPEED_3_GBPS,     SERDES_DEFAULT_MODE, 0, 0},
++	{SGMII2,     SERDES_SPEED_3_125_GBPS, SERDES_DEFAULT_MODE, 0, 0},
++	{PEX1,       SERDES_SPEED_5_GBPS,     PEX_ROOT_COMPLEX_X1, 0, 0},
++	{USB3_HOST1, SERDES_SPEED_5_GBPS,     SERDES_DEFAULT_MODE, 0, 0}
++};
++
++int hws_board_topology_load(struct serdes_map **serdes_map_array, u8 *count)
++{
++	*serdes_map_array = board_serdes_map;
++	*count = ARRAY_SIZE(board_serdes_map);
++	return 0;
++}
++
++/*
++ * Define the DDR layout / topology here in the board file. This will
++ * be used by the DDR init code in the SPL U-Boot version to configure
++ * the DDR controller.
++ */
++static struct mv_ddr_topology_map board_topology_map = {
++	DEBUG_LEVEL_ERROR,
++	0x1, /* active interfaces */
++	/* cs_mask, mirror, dqs_swap, ck_swap X PUPs */
++	{ { { {0x1, 0, 1, 0},
++	      {0x1, 0, 1, 0},
++	      {0x1, 0, 1, 0},
++	      {0x1, 0, 1, 0},
++	      {0x1, 0, 0, 0} },
++	    SPEED_BIN_DDR_2400R,	/* speed_bin */
++	    MV_DDR_DEV_WIDTH_8BIT,	/* memory_width */
++	    MV_DDR_DIE_CAP_4GBIT,	/* mem_size */
++	    MV_DDR_FREQ_SAR,		/* frequency */
++	    0, 0,			/* cas_wl cas_l */
++	    MV_DDR_TEMP_LOW,		/* temperature */
++	    MV_DDR_TIM_DEFAULT} },	/* timing */
++	BUS_MASK_32BIT,			/* Busses mask */
++	MV_DDR_CFG_DEFAULT,		/* ddr configuration data source */
++	NOT_COMBINED,			/* ddr twin-die combined */
++	{ {0} },			/* raw spd data */
++	{0},				/* timing parameters */
++	{ {0} },			/* electrical configuration */
++	{0,},				/* electrical parameters */
++	0x3,				/* clock enable mask */
++};
++
++struct mv_ddr_topology_map *mv_ddr_topology_map_get(void)
++{
++	/* Return the board topology as defined in the board code */
++	return &board_topology_map;
++}
++
++int board_early_init_f(void)
++{
++	/* Configure MPP */
++	writel(BOARD_MPP00_07, MVEBU_MPP_BASE + 0x00); // MPP00_07
++	writel(BOARD_MPP08_15, MVEBU_MPP_BASE + 0x04); // MPP08_15
++	writel(BOARD_MPP16_23, MVEBU_MPP_BASE + 0x08); // MPP16_23
++	writel(BOARD_MPP24_31, MVEBU_MPP_BASE + 0x0c); // MPP24_31
++	writel(BOARD_MPP32_39, MVEBU_MPP_BASE + 0x10); // MPP32_39
++	writel(BOARD_MPP40_47, MVEBU_MPP_BASE + 0x14); // MPP40_47
++	writel(BOARD_MPP48_55, MVEBU_MPP_BASE + 0x18); // MPP48_55
++	writel(BOARD_MPP56_63, MVEBU_MPP_BASE + 0x1c); // MPP56_63
++
++	/* Set GPP Out value */
++	writel(BOARD_GPP_OUT_VAL_LOW, MVEBU_GPIO0_BASE + 0x00);
++	writel(BOARD_GPP_OUT_VAL_MID, MVEBU_GPIO1_BASE + 0x00);
++
++	/* Set GPP Polarity */
++	writel(BOARD_GPP_POL_LOW, MVEBU_GPIO0_BASE + 0x0c);
++	writel(BOARD_GPP_POL_MID, MVEBU_GPIO1_BASE + 0x0c);
++
++	/* Set GPP Out Enable */
++	writel(BOARD_GPP_OUT_ENA_LOW, MVEBU_GPIO0_BASE + 0x04);
++	writel(BOARD_GPP_OUT_ENA_MID, MVEBU_GPIO1_BASE + 0x04);
++
++	return 0;
++}
++
++int board_init(void)
++{
++	/* Address of boot parameters */
++	gd->bd->bi_boot_params = mvebu_sdram_bar(0) + 0x100;
++
++	return 0;
++}
+diff --git a/configs/sg3100_defconfig b/configs/sg3100_defconfig
+new file mode 100644
+index 0000000000..0beddbaf10
+--- /dev/null
++++ b/configs/sg3100_defconfig
+@@ -0,0 +1,74 @@
++CONFIG_ARM=y
++CONFIG_ARCH_CPU_INIT=y
++CONFIG_SYS_THUMB_BUILD=y
++CONFIG_ARCH_MVEBU=y
++CONFIG_SYS_TEXT_BASE=0x00800000
++CONFIG_SYS_MALLOC_F_LEN=0x2000
++CONFIG_SPL_LIBCOMMON_SUPPORT=y
++CONFIG_SPL_LIBGENERIC_SUPPORT=y
++CONFIG_NR_DRAM_BANKS=2
++CONFIG_TARGET_SG3100=y
++CONFIG_MVEBU_SPL_BOOT_DEVICE_SPI=y
++CONFIG_DM_GPIO=y
++CONFIG_DEFAULT_DEVICE_TREE="armada-388-sg3100"
++CONFIG_SPL_TEXT_BASE=0x40000030
++CONFIG_SPL_SERIAL=y
++CONFIG_SPL=y
++CONFIG_DEBUG_UART_BASE=0xd0012000
++CONFIG_DEBUG_UART_CLOCK=250000000
++CONFIG_DEBUG_UART=y
++CONFIG_AHCI=y
++CONFIG_DISTRO_DEFAULTS=y
++CONFIG_SYS_LOAD_ADDR=0x800000
++CONFIG_BOOTDELAY=3
++CONFIG_USE_PREBOOT=y
++CONFIG_SYS_CONSOLE_INFO_QUIET=y
++# CONFIG_DISPLAY_BOARDINFO is not set
++CONFIG_DISPLAY_BOARDINFO_LATE=y
++# CONFIG_CMD_FLASH is not set
++CONFIG_CMD_GPIO=y
++CONFIG_CMD_I2C=y
++CONFIG_CMD_MMC=y
++CONFIG_CMD_PCI=y
++CONFIG_CMD_SPI=y
++CONFIG_CMD_USB=y
++# CONFIG_CMD_SETEXPR is not set
++CONFIG_CMD_TFTPPUT=y
++CONFIG_CMD_CACHE=y
++CONFIG_CMD_TIME=y
++# CONFIG_SPL_PARTITION_UUIDS is not set
++CONFIG_NET_RANDOM_ETHADDR=y
++CONFIG_SPL_OF_TRANSLATE=y
++CONFIG_AHCI_MVEBU=y
++CONFIG_DM_I2C=y
++CONFIG_SYS_I2C_MVTWSI=y
++CONFIG_DM_MMC=y
++CONFIG_SUPPORT_EMMC_BOOT=y
++CONFIG_MMC_SDHCI=y
++CONFIG_MMC_SDHCI_SDMA=y
++CONFIG_MMC_SDHCI_MV=y
++CONFIG_MTD=y
++CONFIG_SF_DEFAULT_BUS=0
++CONFIG_SPI_FLASH_MTD=y
++CONFIG_SPI_FLASH_WINBOND=y
++CONFIG_PHY_MARVELL=y
++CONFIG_PHY_GIGE=y
++CONFIG_MVNETA=y
++CONFIG_MII=y
++CONFIG_PCI=y
++CONFIG_PCI_MVEBU=y
++CONFIG_SCSI=y
++CONFIG_DEBUG_UART_SHIFT=2
++CONFIG_SYS_NS16550=y
++CONFIG_KIRKWOOD_SPI=y
++CONFIG_USB=y
++CONFIG_DM_USB=y
++CONFIG_USB_XHCI_HCD=y
++CONFIG_ENV_OFFSET=0x300000
++CONFIG_ENV_SECT_SIZE=0x20000
++CONFIG_ENV_IS_IN_SPI_FLASH=y
++CONFIG_MVEBU_EFUSE=y
++CONFIG_CMD_FUSE=y
++CONFIG_FIT=y
++CONFIG_FIT_SIGNATURE=y
++CONFIG_LEGACY_IMAGE_FORMAT=y
+diff --git a/include/configs/sg3100.h b/include/configs/sg3100.h
+new file mode 100644
+index 0000000000..1c078a3fa1
+--- /dev/null
++++ b/include/configs/sg3100.h
+@@ -0,0 +1,97 @@
++/* SPDX-License-Identifier: GPL-2.0+ */
++#ifndef _CONFIG_SG3100_H
++#define _CONFIG_SG3100_H
++
++#include <linux/stringify.h>
++
++/* Use custom kwbimage.cfg */
++#define CONFIG_SYS_KWD_CONFIG	$(CONFIG_BOARDDIR)/kwbimage.cfg
++
++#define CONFIG_ENV_MIN_ENTRIES		128
++
++#define PHY_ANEG_TIMEOUT		8000 /* PHY needs a longer aneg time */
++
++/* use DDR4 */
++#define CONFIG_DDR4
++
++/* PCIe support */
++#ifndef CONFIG_SPL_BUILD
++#define CONFIG_PCI_SCAN_SHOW
++#endif
++
++/* SATA support */
++#ifdef CONFIG_SCSI
++#define CONFIG_SCSI_AHCI_PLAT
++#define CONFIG_SYS_SCSI_MAX_SCSI_ID	1
++#define CONFIG_SYS_SCSI_MAX_LUN		1
++#define CONFIG_SYS_SCSI_MAX_DEVICE	(CONFIG_SYS_SCSI_MAX_SCSI_ID * \
++					CONFIG_SYS_SCSI_MAX_LUN)
++#endif
++
++/* Increase default to allow for larger kernels */
++#define CONFIG_SYS_BOOTM_LEN		(64 * 1024 * 1024)
++
++/* Keep device tree and initrd in lower memory so the kernel can access them */
++#define RELOCATION_LIMITS_ENV_SETTINGS	\
++	"fdt_high=0x10000000\0"		\
++	"initrd_high=0x10000000\0"
++
++/* SPL */
++
++/* Defines for SPL */
++#define CONFIG_SPL_SIZE			(140 << 10)
++#define CONFIG_SPL_MAX_SIZE		(CONFIG_SPL_SIZE - 0x30)
++
++#define CONFIG_SPL_BSS_START_ADDR	(0x40000000 + CONFIG_SPL_SIZE)
++#define CONFIG_SPL_BSS_MAX_SIZE		(16 << 10)
++
++#ifdef CONFIG_SPL_BUILD
++#define CONFIG_SYS_MALLOC_SIMPLE
++#endif
++
++#define CONFIG_SPL_STACK		(0x40000000 + ((192 - 16) << 10))
++#define CONFIG_SPL_BOOTROM_SAVE		(CONFIG_SPL_STACK + 4)
++
++/*
++ * mv-common.h should be defined after CMD configs since it used them
++ * to enable certain macros
++ */
++#include "mv-common.h"
++
++#ifndef CONFIG_SPL_BUILD
++
++#ifdef CONFIG_MMC
++#define BOOT_TARGET_DEVICES_MMC(func) func(MMC, mmc, 0)
++#else
++#define BOOT_TARGET_DEVICES_MMC(func)
++#endif
++
++/* Boot settings */
++#define BOOT_TARGET_DEVICES(func) \
++	BOOT_TARGET_DEVICES_MMC(func)
++
++#define FDT_ADDR_R			__stringify(0x2000000)
++#define KERNEL_ADDR_R			__stringify(0x2800000)
++#define RAMDISK_ADDR_R			__stringify(0x4800000)
++#define SCRIPT_ADDR_R			__stringify(0x200000)
++#define PXEFILE_ADDR_R			__stringify(0x300000)
++
++#define LOAD_ADDRESS_ENV_SETTINGS \
++	"fdt_addr=${fdtcontroladdr}\0" \
++	"kernel_addr_r=" KERNEL_ADDR_R "\0" \
++	"fdt_addr_r=" FDT_ADDR_R "\0" \
++	"ramdisk_addr_r=" RAMDISK_ADDR_R "\0" \
++	"scriptaddr=" SCRIPT_ADDR_R "\0" \
++	"pxefile_addr_r=" PXEFILE_ADDR_R "\0"
++
++#include <config_distro_bootcmd.h>
++
++#define CONFIG_EXTRA_ENV_SETTINGS \
++	RELOCATION_LIMITS_ENV_SETTINGS \
++	LOAD_ADDRESS_ENV_SETTINGS \
++	"console=ttyS0,115200\0" \
++	BOOTENV
++
++#endif /* CONFIG_SPL_BUILD */
++
++#endif /* _CONFIG_SG3100_H */
