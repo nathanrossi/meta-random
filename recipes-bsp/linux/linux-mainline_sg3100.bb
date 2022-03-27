@@ -61,6 +61,11 @@ python do_generate_config:append:sg3100 () {
     config("DEBUG_LL", "y")
     config("DEBUG_MVEBU_UART0_ALTERNATE", "y")
 
+    # spi flash
+    # HACK: Disable spi flash driver, as it does something to the spi flash
+    # configuration that prevent reboot from working correctly.
+    config("MTD_SPI_NOR", "n")
+
     # rtc
     config("RTC_CLASS", "y")
     config("RTC_DRV_ARMADA38X", "y")
