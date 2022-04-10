@@ -1,16 +1,16 @@
-From 0698fbfd2e44feb5feadd754bc02c37160c6e6c5 Mon Sep 17 00:00:00 2001
+From 6a0713ce529cc2d188e6c12102109a6df507e7c9 Mon Sep 17 00:00:00 2001
 From: Nathan Rossi <nathan@nathanrossi.com>
-Date: Sat, 21 Aug 2021 22:46:07 +1000
+Date: Sun, 10 Apr 2022 16:28:23 +1000
 Subject: [PATCH] WIP
 
 ---
- .../devicetree/bindings/net/dsa/marvell.txt         |  2 ++
- drivers/net/dsa/mv88e6xxx/port.c                    |  2 ++
- drivers/net/dsa/mv88e6xxx/smi.c                     | 13 +++++++++++++
- 3 files changed, 17 insertions(+)
+ .../devicetree/bindings/net/dsa/marvell.txt    |  2 ++
+ drivers/net/dsa/mv88e6xxx/port.c               | 18 ++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/smi.c                | 13 +++++++++++++
+ 3 files changed, 33 insertions(+)
 
 diff --git a/Documentation/devicetree/bindings/net/dsa/marvell.txt b/Documentation/devicetree/bindings/net/dsa/marvell.txt
-index 30c11fea49..afc3109225 100644
+index 2363b41241..ebf3e07ee1 100644
 --- a/Documentation/devicetree/bindings/net/dsa/marvell.txt
 +++ b/Documentation/devicetree/bindings/net/dsa/marvell.txt
 @@ -41,6 +41,8 @@ Optional properties:
@@ -23,26 +23,39 @@ index 30c11fea49..afc3109225 100644
  			  bus.
  - mdio?		: Container of PHYs and devices on the external MDIO
 diff --git a/drivers/net/dsa/mv88e6xxx/port.c b/drivers/net/dsa/mv88e6xxx/port.c
-index f77e2ee64a..e9139bacd3 100644
+index 795b312876..83142b8829 100644
 --- a/drivers/net/dsa/mv88e6xxx/port.c
 +++ b/drivers/net/dsa/mv88e6xxx/port.c
-@@ -723,9 +723,11 @@ int mv88e6341_port_set_cmode(struct mv88e6xxx_chip *chip, int port,
+@@ -724,6 +724,24 @@ int mv88e6341_port_set_cmode(struct mv88e6xxx_chip *chip, int port,
+ 	case PHY_INTERFACE_MODE_XAUI:
+ 	case PHY_INTERFACE_MODE_RXAUI:
+ 		return -EINVAL;
++	/*
++	 * Skip setting writable if the port is already configured correctly.
++	 * This check is done here before writable is set. Such that on devices
++	 * that are already correctly configured, no attempt is made to make
++	 * the cmode writable as it may fail.
++	 */
++	case PHY_INTERFACE_MODE_1000BASEX:
++		if (chip->ports[port].cmode == MV88E6XXX_PORT_STS_CMODE_1000BASEX)
++			return 0;
++		break;
++	case PHY_INTERFACE_MODE_SGMII:
++		if (chip->ports[port].cmode == MV88E6XXX_PORT_STS_CMODE_SGMII)
++			return 0;
++		break;
++	case PHY_INTERFACE_MODE_2500BASEX:
++		if (chip->ports[port].cmode == MV88E6XXX_PORT_STS_CMODE_2500BASEX)
++			return 0;
++		break;
+ 	default:
  		break;
  	}
- 
-+	/* HACK: broken set writable on 88e6141?
- 	err = mv88e6341_port_set_cmode_writable(chip, port);
- 	if (err)
- 		return err;
-+	*/
- 
- 	return mv88e6xxx_port_set_cmode(chip, port, mode, true);
- }
 diff --git a/drivers/net/dsa/mv88e6xxx/smi.c b/drivers/net/dsa/mv88e6xxx/smi.c
-index 282fe08db0..b47b4d9a9f 100644
+index a990271b74..e230bfe8ef 100644
 --- a/drivers/net/dsa/mv88e6xxx/smi.c
 +++ b/drivers/net/dsa/mv88e6xxx/smi.c
-@@ -163,6 +163,19 @@ static const struct mv88e6xxx_bus_ops mv88e6xxx_smi_indirect_ops = {
+@@ -171,6 +171,19 @@ static const struct mv88e6xxx_bus_ops mv88e6xxx_smi_indirect_ops = {
  int mv88e6xxx_smi_init(struct mv88e6xxx_chip *chip,
  		       struct mii_bus *bus, int sw_addr)
  {
@@ -62,6 +75,3 @@ index 282fe08db0..b47b4d9a9f 100644
  	if (chip->info->dual_chip)
  		chip->smi_ops = &mv88e6xxx_smi_dual_direct_ops;
  	else if (sw_addr == 0)
--- 
-2.33.0
-
