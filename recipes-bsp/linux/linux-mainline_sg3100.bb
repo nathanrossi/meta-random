@@ -15,9 +15,10 @@ COMPATIBLE_MACHINE = "^$"
 S = "${WORKDIR}/git"
 
 BRANCH = "master"
-SRCREV = "1862a69c917417142190bc18c8ce16680598664b"
-PV = "5.18-rc2+git${SRCPV}"
-SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;protocol=https;branch=${BRANCH}"
+SRCREV = "5da66099d6e28c66d24c49d9e791f64318c136a9"
+PV = "5.18-rc5+git${SRCPV}"
+# SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;protocol=https;branch=${BRANCH}"
+SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/netdev/net-next.git;protocol=https;branch=${BRANCH}"
 
 python do_generate_config() {
     def config(name, val):
@@ -46,9 +47,6 @@ addtask generate_config before do_configure after do_unpack
 
 KBUILD_DEFCONFIG:sg3100 = "multi_v7_defconfig"
 COMPATIBLE_MACHINE:sg3100 = ".*"
-
-# hacks for switch chip
-SRC_URI:append:sg3100 = " file://0001-WIP.patch "
 
 python do_generate_config:append:sg3100 () {
     # /proc/config
