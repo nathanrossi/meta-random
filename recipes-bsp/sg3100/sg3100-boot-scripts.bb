@@ -13,8 +13,8 @@ do_install[noexec] = "1"
 
 do_compile() {
     # generate u-boot script file for distro bootcmd
-    echo 'fatload ${devtype} ${devnum}:${distro_bootpart} ${kernel_addr_r} zImage' > ${B}/boot.cmd
-    echo 'fatload ${devtype} ${devnum}:${distro_bootpart} ${ramdisk_addr_r} core-image-minimal-sg3100.cpio.gz.u-boot' >> ${B}/boot.cmd
+    echo 'load ${devtype} ${devnum}:${distro_bootpart} ${kernel_addr_r} zImage' > ${B}/boot.cmd
+    echo 'load ${devtype} ${devnum}:${distro_bootpart} ${ramdisk_addr_r} core-image-minimal-sg3100.cpio.gz.u-boot' >> ${B}/boot.cmd
     echo 'bootz ${kernel_addr_r} ${ramdisk_addr_r} ${fdtcontroladdr}' >> ${B}/boot.cmd
     mkimage -A arm -O linux -T script -C none -a 0 -e 0 -n "Boot Script" -d ${B}/boot.cmd ${B}/boot.scr
 }
