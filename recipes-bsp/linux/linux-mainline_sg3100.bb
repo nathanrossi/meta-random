@@ -84,3 +84,23 @@ python do_generate_config:append:sg3100 () {
     config("NET_SWITCHDEV", "y")
     config("MARVELL_PHY", "y")
 }
+
+python do_generate_config:append:remotebox () {
+    # networking
+    config("VETH", "y")
+    config("BRIDGE", "y")
+    config("BRIDGE_VLAN_FILTERING", "y")
+    config("VLAN_8021Q", "y")
+    # net namespaces
+    config("NAMESPACES", "y")
+    config("NET_NS", "y")
+
+    # filesystems
+    config("FUSE_FS", "y")
+    config("OVERLAY_FS", "y")
+    config("EXT4_FS", "y")
+    config("EXT4_FS_POSIX_ACL", "y")
+    config("BTRFS_FS", "y")
+    config("BTRFS_FS_POSIX_ACL", "y")
+    config("EXFAT_FS", "y")
+}
