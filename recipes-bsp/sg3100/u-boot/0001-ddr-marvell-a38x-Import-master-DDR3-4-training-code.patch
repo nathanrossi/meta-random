@@ -1,4 +1,4 @@
-From 6fca5dc3b4c8e3b2d8f060b4374ab167c141f3eb Mon Sep 17 00:00:00 2001
+From 04d45adb46815c739bfd9d69006978eb68da776c Mon Sep 17 00:00:00 2001
 From: Nathan Rossi <nathan@nathanrossi.com>
 Date: Sat, 26 Mar 2022 23:34:11 +1000
 Subject: [PATCH] ddr: marvell: a38x: Import master DDR3/4 training code
@@ -23,7 +23,7 @@ Signed-off-by: Nathan Rossi <nathan@nathanrossi.com>
  drivers/ddr/marvell/a38x/ddr3_logging_def.h   |   27 +
  drivers/ddr/marvell/a38x/ddr3_training.c      |  136 +-
  drivers/ddr/marvell/a38x/ddr3_training_bist.c |   12 +
- .../a38x/ddr3_training_centralization.c       |   34 +
+ .../a38x/ddr3_training_centralization.c       |    6 +
  drivers/ddr/marvell/a38x/ddr3_training_db.c   |  278 ++
  drivers/ddr/marvell/a38x/ddr3_training_ip.h   |   17 +
  .../ddr/marvell/a38x/ddr3_training_ip_db.h    |  154 ++
@@ -44,7 +44,7 @@ Signed-off-by: Nathan Rossi <nathan@nathanrossi.com>
  drivers/ddr/marvell/a38x/mv_ddr_regs.h        |   59 +
  drivers/ddr/marvell/a38x/mv_ddr_topology.h    |   72 +
  scripts/config_whitelist.txt                  |   23 +
- 28 files changed, 6236 insertions(+), 1 deletion(-)
+ 28 files changed, 6208 insertions(+), 1 deletion(-)
  create mode 100644 drivers/ddr/marvell/a38x/mv_ddr4_mpr_pda_if.c
  create mode 100644 drivers/ddr/marvell/a38x/mv_ddr4_mpr_pda_if.h
  create mode 100644 drivers/ddr/marvell/a38x/mv_ddr4_training.c
@@ -806,7 +806,7 @@ index d388a17291..3f072eb037 100644
  	for (adll_tap = 0; adll_tap < ADLL_TAPS_PER_PERIOD; adll_tap++) {
  		ddr3_tip_bus_write(0, ACCESS_TYPE_UNICAST, 0, ACCESS_TYPE_MULTICAST, 0,
 diff --git a/drivers/ddr/marvell/a38x/ddr3_training_centralization.c b/drivers/ddr/marvell/a38x/ddr3_training_centralization.c
-index 648b37ef6f..23491e1789 100644
+index be9f985f22..23491e1789 100644
 --- a/drivers/ddr/marvell/a38x/ddr3_training_centralization.c
 +++ b/drivers/ddr/marvell/a38x/ddr3_training_centralization.c
 @@ -16,7 +16,13 @@
@@ -823,60 +823,6 @@ index 648b37ef6f..23491e1789 100644
  
  u32 start_if = 0, end_if = (MAX_INTERFACE_NUM - 1);
  u8 bus_end_window[NUM_OF_CENTRAL_TYPES][MAX_INTERFACE_NUM][MAX_BUS_NUM];
-@@ -55,6 +61,7 @@ static int ddr3_tip_centralization(u32 dev_num, u32 mode)
- 	enum hws_training_ip_stat training_result[MAX_INTERFACE_NUM];
- 	u32 if_id, pattern_id, bit_id;
- 	u8 bus_id;
-+	u8 current_byte_status;
- 	u8 cur_start_win[BUS_WIDTH_IN_BITS];
- 	u8 centralization_result[MAX_INTERFACE_NUM][BUS_WIDTH_IN_BITS];
- 	u8 cur_end_win[BUS_WIDTH_IN_BITS];
-@@ -166,6 +173,10 @@ static int ddr3_tip_centralization(u32 dev_num, u32 mode)
- 						  result[search_dir_id][7]));
- 				}
- 
-+				current_byte_status =
-+					mv_ddr_tip_sub_phy_byte_status_get(if_id,
-+									   bus_id);
-+
- 				for (bit_id = 0; bit_id < BUS_WIDTH_IN_BITS;
- 				     bit_id++) {
- 					/* check if this code is valid for 2 edge, probably not :( */
-@@ -174,11 +185,34 @@ static int ddr3_tip_centralization(u32 dev_num, u32 mode)
- 							       [HWS_LOW2HIGH]
- 							       [bit_id],
- 							       EDGE_1);
-+					if (current_byte_status &
-+					    (BYTE_SPLIT_OUT_MIX |
-+					     BYTE_HOMOGENEOUS_SPLIT_OUT)) {
-+						if (cur_start_win[bit_id] >= 64)
-+							cur_start_win[bit_id] -= 64;
-+						else
-+							cur_start_win[bit_id] = 0;
-+						DEBUG_CENTRALIZATION_ENGINE
-+							(DEBUG_LEVEL_INFO,
-+							 ("pattern %d IF %d pup %d bit %d subtract 64 adll from start\n",
-+							  pattern_id, if_id, bus_id, bit_id));
-+					}
- 					cur_end_win[bit_id] =
- 						GET_TAP_RESULT(result
- 							       [HWS_HIGH2LOW]
- 							       [bit_id],
- 							       EDGE_1);
-+					if (cur_end_win[bit_id] >= 64 &&
-+					    (current_byte_status &
-+					     (BYTE_SPLIT_OUT_MIX |
-+					      BYTE_HOMOGENEOUS_SPLIT_OUT))) {
-+						cur_end_win[bit_id] -= 64;
-+						DEBUG_CENTRALIZATION_ENGINE
-+							(DEBUG_LEVEL_INFO,
-+							 ("pattern %d IF %d pup %d bit %d subtract 64 adll from end\n",
-+							  pattern_id, if_id, bus_id, bit_id));
-+					}
-+
- 					/* window length */
- 					current_window[bit_id] =
- 						cur_end_win[bit_id] -
 diff --git a/drivers/ddr/marvell/a38x/ddr3_training_db.c b/drivers/ddr/marvell/a38x/ddr3_training_db.c
 index 6aa7b6069e..0a6349c10f 100644
 --- a/drivers/ddr/marvell/a38x/ddr3_training_db.c
@@ -6659,7 +6605,7 @@ index 0000000000..0e02af92d9
 +
 +#endif /* _MV_DDR4_TRAINING_LEVELING_H */
 diff --git a/drivers/ddr/marvell/a38x/mv_ddr_plat.c b/drivers/ddr/marvell/a38x/mv_ddr_plat.c
-index faafc86ea2..d6044d9f4e 100644
+index 7c7bce73a3..9695ec1254 100644
 --- a/drivers/ddr/marvell/a38x/mv_ddr_plat.c
 +++ b/drivers/ddr/marvell/a38x/mv_ddr_plat.c
 @@ -38,6 +38,24 @@
@@ -6799,9 +6745,9 @@ index faafc86ea2..d6044d9f4e 100644
 +};
 +#endif /* CONFIG_DDR4 */
  
- static u32 async_mode_at_tf;
- 
-@@ -399,6 +480,7 @@ static int mv_ddr_sar_freq_get(int dev_num, enum mv_ddr_freq *freq)
+ static u32 dq_bit_map_2_phy_pin[] = {
+ 	1, 0, 2, 6, 9, 8, 3, 7,	/* 0 */
+@@ -397,6 +478,7 @@ static int mv_ddr_sar_freq_get(int dev_num, enum mv_ddr_freq *freq)
  	if (((ref_clk_satr >> DEVICE_SAMPLE_AT_RESET2_REG_REFCLK_OFFSET) & 0x1) ==
  	    DEVICE_SAMPLE_AT_RESET2_REG_REFCLK_25MHZ) {
  		switch (reg) {
@@ -6809,7 +6755,7 @@ index faafc86ea2..d6044d9f4e 100644
  		case 0x1:
  			DEBUG_TRAINING_ACCESS(DEBUG_LEVEL_ERROR,
  					      ("Warning: Unsupported freq mode for 333Mhz configured(%d)\n",
-@@ -426,6 +508,7 @@ static int mv_ddr_sar_freq_get(int dev_num, enum mv_ddr_freq *freq)
+@@ -424,6 +506,7 @@ static int mv_ddr_sar_freq_get(int dev_num, enum mv_ddr_freq *freq)
  		case 0x6:
  			*freq = MV_DDR_FREQ_600;
  			break;
@@ -6817,7 +6763,7 @@ index faafc86ea2..d6044d9f4e 100644
  		case 0x11:
  		case 0x14:
  			DEBUG_TRAINING_ACCESS(DEBUG_LEVEL_ERROR,
-@@ -450,21 +533,32 @@ static int mv_ddr_sar_freq_get(int dev_num, enum mv_ddr_freq *freq)
+@@ -448,21 +531,32 @@ static int mv_ddr_sar_freq_get(int dev_num, enum mv_ddr_freq *freq)
  		case 0x12:
  			*freq = MV_DDR_FREQ_900;
  			break;
@@ -6850,7 +6796,7 @@ index faafc86ea2..d6044d9f4e 100644
  		case 0xb:
  			*freq = MV_DDR_FREQ_800;
  			break;
-@@ -480,6 +574,7 @@ static int mv_ddr_sar_freq_get(int dev_num, enum mv_ddr_freq *freq)
+@@ -478,6 +572,7 @@ static int mv_ddr_sar_freq_get(int dev_num, enum mv_ddr_freq *freq)
  	return MV_OK;
  }
  
@@ -6858,7 +6804,7 @@ index faafc86ea2..d6044d9f4e 100644
  static int ddr3_tip_a38x_get_medium_freq(int dev_num, enum mv_ddr_freq *freq)
  {
  	u32 reg, ref_clk_satr;
-@@ -556,6 +651,7 @@ static int ddr3_tip_a38x_get_medium_freq(int dev_num, enum mv_ddr_freq *freq)
+@@ -554,6 +649,7 @@ static int ddr3_tip_a38x_get_medium_freq(int dev_num, enum mv_ddr_freq *freq)
  
  	return MV_OK;
  }
@@ -6866,7 +6812,7 @@ index faafc86ea2..d6044d9f4e 100644
  
  static int ddr3_tip_a38x_get_device_info(u8 dev_num, struct ddr3_device_info *info_ptr)
  {
-@@ -669,13 +765,40 @@ static int mv_ddr_sw_db_init(u32 dev_num, u32 board_id)
+@@ -667,13 +763,40 @@ static int mv_ddr_sw_db_init(u32 dev_num, u32 board_id)
  	dfs_low_freq = DFS_LOW_FREQ_VALUE;
  	calibration_update_control = 1;
  
@@ -6907,7 +6853,7 @@ index faafc86ea2..d6044d9f4e 100644
  	struct mv_ddr_topology_map *tm = mv_ddr_topology_map_get();
  	enum mv_ddr_freq ddr_freq = tm->interface_params[0].memory_freq;
  
-@@ -713,6 +836,7 @@ static int mv_ddr_training_mask_set(void)
+@@ -711,6 +834,7 @@ static int mv_ddr_training_mask_set(void)
  		mask_tune_func &= ~PBS_TX_MASK_BIT;
  		mask_tune_func &= ~PBS_RX_MASK_BIT;
  	}
@@ -6915,7 +6861,7 @@ index faafc86ea2..d6044d9f4e 100644
  
  	return MV_OK;
  }
-@@ -765,6 +889,7 @@ static int ddr3_tip_a38x_set_divider(u8 dev_num, u32 if_id,
+@@ -767,6 +891,7 @@ static int ddr3_tip_a38x_set_divider(u8 dev_num, u32 if_id,
  
  		/* Set KNL values */
  		switch (frequency) {
@@ -6923,7 +6869,7 @@ index faafc86ea2..d6044d9f4e 100644
  		case MV_DDR_FREQ_467:
  			async_val = 0x806f012;
  			break;
-@@ -774,15 +899,18 @@ static int ddr3_tip_a38x_set_divider(u8 dev_num, u32 if_id,
+@@ -776,15 +901,18 @@ static int ddr3_tip_a38x_set_divider(u8 dev_num, u32 if_id,
  		case MV_DDR_FREQ_600:
  			async_val = 0x805f00a;
  			break;
@@ -6942,7 +6888,7 @@ index faafc86ea2..d6044d9f4e 100644
  		case MV_DDR_FREQ_900:
  			async_val = 0x80d7012;
  			break;
-@@ -1296,6 +1424,12 @@ static int ddr3_new_tip_dlb_config(void)
+@@ -1293,6 +1421,12 @@ static int ddr3_new_tip_dlb_config(void)
  		i++;
  	}
  
@@ -6955,7 +6901,7 @@ index faafc86ea2..d6044d9f4e 100644
  
  	/* Enable DLB */
  	reg = reg_read(DLB_CTRL_REG);
-@@ -1435,12 +1569,129 @@ int ddr3_tip_configure_phy(u32 dev_num)
+@@ -1432,12 +1566,129 @@ int ddr3_tip_configure_phy(u32 dev_num)
  		ACCESS_TYPE_MULTICAST, PARAM_NOT_CARE,
  		DDR_PHY_DATA, 0x90, 0x6002));
  
@@ -7278,13 +7224,13 @@ index 1cb69ad085..715c1468bc 100644
  /* ddr bus masks */
  #define BUS_MASK_32BIT			0xf
 diff --git a/scripts/config_whitelist.txt b/scripts/config_whitelist.txt
-index b9c1c61e13..f2aa7a45c5 100644
+index a6bc234f51..6680b47ab2 100644
 --- a/scripts/config_whitelist.txt
 +++ b/scripts/config_whitelist.txt
-@@ -180,6 +180,29 @@ CONFIG_DB_784MP_GP
+@@ -96,6 +96,29 @@ CONFIG_CQSPI_REF_CLK
+ CONFIG_CUSTOMER_BOARD_SUPPORT
+ CONFIG_DB_784MP_GP
  CONFIG_DCACHE
- CONFIG_DCACHE_OFF
- CONFIG_DCFG_ADDR
 +CONFIG_DDR3
 +CONFIG_DDR4
 +CONFIG_DDR_
@@ -7309,5 +7255,5 @@ index b9c1c61e13..f2aa7a45c5 100644
 +CONFIG_DDR_PLL2
 +CONFIG_DDR_SPD
  CONFIG_DEBUG
- CONFIG_DEBUG_FS
  CONFIG_DEBUG_LED
+ CONFIG_DEEP_SLEEP

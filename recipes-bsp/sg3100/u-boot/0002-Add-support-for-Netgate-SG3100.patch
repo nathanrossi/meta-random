@@ -1,6 +1,6 @@
-From a07abdef544fe5d732c1daea94a4c8747b936b30 Mon Sep 17 00:00:00 2001
+From 764c1db3f5844259adec6d137de8bc21a17721a0 Mon Sep 17 00:00:00 2001
 From: Nathan Rossi <nathan@nathanrossi.com>
-Date: Fri, 13 May 2022 15:52:32 +1000
+Date: Sat, 21 May 2022 23:38:14 +1000
 Subject: [PATCH] Add support for Netgate SG3100
 
 Signed-off-by: Nathan Rossi <nathan@nathanrossi.com>
@@ -11,9 +11,9 @@ Signed-off-by: Nathan Rossi <nathan@nathanrossi.com>
  board/netgate/sg3100/Makefile      |   3 +
  board/netgate/sg3100/kwbimage.cfg  |  13 ++
  board/netgate/sg3100/sg3100.c      | 224 +++++++++++++++++++
- configs/sg3100_defconfig           |  74 +++++++
- include/configs/sg3100.h           |  97 +++++++++
- 8 files changed, 761 insertions(+)
+ configs/sg3100_defconfig           |  75 +++++++
+ include/configs/sg3100.h           |  85 ++++++++
+ 8 files changed, 750 insertions(+)
  create mode 100644 arch/arm/dts/armada-388-sg3100.dts
  create mode 100644 board/netgate/sg3100/Makefile
  create mode 100644 board/netgate/sg3100/kwbimage.cfg
@@ -22,10 +22,10 @@ Signed-off-by: Nathan Rossi <nathan@nathanrossi.com>
  create mode 100644 include/configs/sg3100.h
 
 diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
-index b3e2a9c9d7..023fe6937c 100644
+index 644ba961a2..4c25806630 100644
 --- a/arch/arm/dts/Makefile
 +++ b/arch/arm/dts/Makefile
-@@ -237,6 +237,7 @@ dtb-$(CONFIG_ARCH_MVEBU) +=			\
+@@ -242,6 +242,7 @@ dtb-$(CONFIG_ARCH_MVEBU) +=			\
  	armada-388-clearfog.dtb			\
  	armada-388-gp.dtb			\
  	armada-388-helios4.dtb			\
@@ -377,7 +377,7 @@ index 0000000000..d88947091b
 +};
 +
 diff --git a/arch/arm/mach-mvebu/Kconfig b/arch/arm/mach-mvebu/Kconfig
-index d23cc0c760..49b21ef0bc 100644
+index 7d487f270b..6b62312036 100644
 --- a/arch/arm/mach-mvebu/Kconfig
 +++ b/arch/arm/mach-mvebu/Kconfig
 @@ -56,6 +56,11 @@ config SYS_MVEBU_PLL_CLOCK
@@ -403,7 +403,7 @@ index d23cc0c760..49b21ef0bc 100644
  config TARGET_MVEBU_ARMADA_37XX
  	bool "Support Armada 37xx platforms"
  	select ARMADA_3700
-@@ -216,6 +225,7 @@ config DDR_LOG_LEVEL
+@@ -229,6 +238,7 @@ config DDR_RESET_ON_TRAINING_FAILURE
  config SYS_BOARD
  	default "clearfog" if TARGET_CLEARFOG
  	default "helios4" if TARGET_HELIOS4
@@ -411,7 +411,7 @@ index d23cc0c760..49b21ef0bc 100644
  	default "mvebu_armada-37xx" if TARGET_MVEBU_ARMADA_37XX
  	default "db-88f6720" if TARGET_DB_88F6720
  	default "db-88f6820-gp" if TARGET_DB_88F6820_GP
-@@ -236,6 +246,7 @@ config SYS_BOARD
+@@ -249,6 +259,7 @@ config SYS_BOARD
  config SYS_CONFIG_NAME
  	default "clearfog" if TARGET_CLEARFOG
  	default "helios4" if TARGET_HELIOS4
@@ -419,7 +419,7 @@ index d23cc0c760..49b21ef0bc 100644
  	default "mvebu_armada-37xx" if TARGET_MVEBU_ARMADA_37XX
  	default "db-88f6720" if TARGET_DB_88F6720
  	default "db-88f6820-gp" if TARGET_DB_88F6820_GP
-@@ -265,6 +276,7 @@ config SYS_VENDOR
+@@ -278,6 +289,7 @@ config SYS_VENDOR
  	default "Marvell" if TARGET_MVEBU_DB_88F7040
  	default "solidrun" if TARGET_CLEARFOG
  	default "kobol" if TARGET_HELIOS4
@@ -687,14 +687,15 @@ index 0000000000..4000306a9d
 +}
 diff --git a/configs/sg3100_defconfig b/configs/sg3100_defconfig
 new file mode 100644
-index 0000000000..0beddbaf10
+index 0000000000..073b8571b8
 --- /dev/null
 +++ b/configs/sg3100_defconfig
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,75 @@
 +CONFIG_ARM=y
 +CONFIG_ARCH_CPU_INIT=y
 +CONFIG_SYS_THUMB_BUILD=y
 +CONFIG_ARCH_MVEBU=y
++CONFIG_SYS_KWD_CONFIG="board/netgate/sg3100/kwbimage.cfg"
 +CONFIG_SYS_TEXT_BASE=0x00800000
 +CONFIG_SYS_MALLOC_F_LEN=0x2000
 +CONFIG_SPL_LIBCOMMON_SUPPORT=y
@@ -767,18 +768,15 @@ index 0000000000..0beddbaf10
 +CONFIG_LEGACY_IMAGE_FORMAT=y
 diff --git a/include/configs/sg3100.h b/include/configs/sg3100.h
 new file mode 100644
-index 0000000000..1c078a3fa1
+index 0000000000..96f1532517
 --- /dev/null
 +++ b/include/configs/sg3100.h
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,85 @@
 +/* SPDX-License-Identifier: GPL-2.0+ */
 +#ifndef _CONFIG_SG3100_H
 +#define _CONFIG_SG3100_H
 +
 +#include <linux/stringify.h>
-+
-+/* Use custom kwbimage.cfg */
-+#define CONFIG_SYS_KWD_CONFIG	$(CONFIG_BOARDDIR)/kwbimage.cfg
 +
 +#define CONFIG_ENV_MIN_ENTRIES		128
 +
@@ -790,15 +788,6 @@ index 0000000000..1c078a3fa1
 +/* PCIe support */
 +#ifndef CONFIG_SPL_BUILD
 +#define CONFIG_PCI_SCAN_SHOW
-+#endif
-+
-+/* SATA support */
-+#ifdef CONFIG_SCSI
-+#define CONFIG_SCSI_AHCI_PLAT
-+#define CONFIG_SYS_SCSI_MAX_SCSI_ID	1
-+#define CONFIG_SYS_SCSI_MAX_LUN		1
-+#define CONFIG_SYS_SCSI_MAX_DEVICE	(CONFIG_SYS_SCSI_MAX_SCSI_ID * \
-+					CONFIG_SYS_SCSI_MAX_LUN)
 +#endif
 +
 +/* Increase default to allow for larger kernels */
