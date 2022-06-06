@@ -86,6 +86,11 @@ python do_generate_config:append:sg3100 () {
 }
 
 python do_generate_config:append:remotebox () {
+    # usb-serial
+    config("USB_SERIAL", "y")
+    config("USB_SERIAL_CP210X", "y")
+    config("USB_SERIAL_FTDI_SIO", "y")
+
     # networking
     config("VETH", "y")
     config("BRIDGE", "y")
