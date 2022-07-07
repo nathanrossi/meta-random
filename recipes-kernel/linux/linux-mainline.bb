@@ -64,6 +64,11 @@ python do_generate_config() {
 
         with open(d.expand("${B}/.config"), "w") as dest:
             dest.write(data)
+
+    if d.getVar("KBUILD_DEFCONFIG"):
+        with open(d.expand("${B}/.config"), "w") as f:
+            with open(d.expand("${S}/arch/${ARCH}/configs/${KBUILD_DEFCONFIG}"), "r") as src:
+                f.write(src.read())
 }
 
 python do_generate_config:append() {
