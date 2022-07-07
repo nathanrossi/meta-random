@@ -7,8 +7,7 @@ edition = "2018"
 repository = "https://github.com/nathanrossi/meta-random"
 
 [dependencies]
-#nix = "0.18.0"
-nix = { git = "https://github.com/nix-rust/nix", rev = "477743d01254ba31a394770d4466960d47fa087f" }
+nix = "0.19.0"
 libc = "0.2.78"
 #mio = { version = "0.7", features = ["os-poll", "os-util"] }
 mio = { version = "0.6", features = [] }

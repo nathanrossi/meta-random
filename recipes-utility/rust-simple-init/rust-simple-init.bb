@@ -60,10 +60,8 @@ SRC_URI += " \
     crate://crates.io/winapi/0.2.8 \
     crate://crates.io/winapi/0.3.9 \
     crate://crates.io/ws2_32-sys/0.2.1 \
-    git://github.com/nix-rust/nix;protocol=https;nobranch=1;name=nix;destsuffix=nix \
+    crate://crates.io/nix/0.19.0 \
     "
-SRCREV_nix = "477743d01254ba31a394770d4466960d47fa087f"
-EXTRA_OECARGO_PATHS += "${WORKDIR}/nix"
 
 S = "${WORKDIR}"
 B = "${WORKDIR}/build"
