@@ -24,10 +24,6 @@ RDEPENDS:${PN} = " \
 		\
 		dtbocfg \
 		\
-		util-linux \
-		usbutils \
-		i2c-tools \
-		\
 		openocd \
 		\
 		${FIRMWARE_DEFAULT} \
