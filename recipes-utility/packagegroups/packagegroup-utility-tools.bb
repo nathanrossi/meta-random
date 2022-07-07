@@ -18,10 +18,17 @@ RDEPENDS:${PN} = " \
 		packagegroup-base \
 		\
 		python3-core \
+		python3-modules \
 		python3-pip \
 		python3-spidev \
 		\
 		dtbocfg \
+		\
+		util-linux \
+		usbutils \
+		i2c-tools \
+		\
+		openocd \
 		\
 		${FIRMWARE_DEFAULT} \
 		"
