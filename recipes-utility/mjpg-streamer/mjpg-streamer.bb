@@ -1,5 +1,5 @@
 SUMMARY = "Stream UVC, or similar as MJPG frames over HTTP"
-LICENSE = "GPLv2"
+LICENSE = "GPL-2.0-only"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=751419260aa954499f7abaabaa882bbe"
 
 SRC_URI = "git://github.com/jacksonliam/mjpg-streamer;protocol=https;branch=master"

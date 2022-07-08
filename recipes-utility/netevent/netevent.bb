@@ -1,5 +1,5 @@
 SUMMARY = "Input-Event device cloning utility. Use it together with ssh/netcat/... to share input devices among different machines."
-LICENSE = "GPLv2"
+LICENSE = "GPL-2.0-only"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=751419260aa954499f7abaabaa882bbe"
 
 S = "${WORKDIR}/git"

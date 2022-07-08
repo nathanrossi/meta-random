@@ -1,6 +1,6 @@
 SUMMARY = "The user-friendly command line shell."
 HOMEPAGE = "https://fishshell.com"
-LICENSE = "GPLv2"
+LICENSE = "GPL-2.0-only"
 LIC_FILES_CHKSUM = "file://COPYING;md5=937511e42dab6bf5fc0786f06fd377a8"
 
 SRC_URI = "git://github.com/fish-shell/fish-shell.git;protocol=https;branch=master"
