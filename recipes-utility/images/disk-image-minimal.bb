@@ -32,7 +32,10 @@ IMAGE_BOOT_FILES:append:rpi = " \
 python do_generate_deployables:append:rpi() {
     cmdline = d.expand("${GENERATED_DEPLOY_DIR}/cmdline.txt")
     with open(cmdline, "w") as f:
-        f.write("dwc_otg.lpm_enable=0 console=tty0")
+        if d.getVar("ENABLE_UART") == "1":
+            f.write("dwc_otg.lpm_enable=0 console=serial0,115200")
+        else:
+            f.write("dwc_otg.lpm_enable=0 console=tty0")
 
     configtxt = d.expand("${GENERATED_DEPLOY_DIR}/config.txt")
     with open(configtxt, "w") as f:
