@@ -39,7 +39,8 @@ impl Service for ConsoleService
 					return;
 				}
 
-				if let Ok(child) = Command::new("/sbin/getty").args(&["-i", "-L", &self.baud.to_string(), path]).spawn() {
+				// getty expects the 'tty...' subpath of /dev/, so use the name of the tty
+				if let Ok(child) = Command::new("/sbin/getty").args(&["-i", "-L", &self.baud.to_string(), &self.name]).spawn() {
 					runtime.logger.service_log(&format!("console:{}", self.name), "started serial login console");
 					self.process = Some(child);
 				}
@@ -61,9 +62,10 @@ impl Service for ConsoleService
 	fn event(&mut self, runtime : &mut Runtime, event : ServiceEvent) -> bool
 	{
 		match event {
-			ServiceEvent::ProcessExited(pid, _) => {
+			ServiceEvent::ProcessExited(pid, status) => {
 				if let Some(child) = &self.process {
 					if child.id() == pid {
+						runtime.logger.service_log(&format!("console:{}", self.name), &format!("getty exited ({})", status));
 						self.process = None;
 						if self.respawn {
 							self.start(runtime);
