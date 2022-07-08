@@ -100,6 +100,10 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 	}
 
 	// network devices
+	let mut lo = NetworkDeviceService::new("lo");
+	lo.add(network::Config::LinkUp);
+	manager.add_service(&mut rt, lo, true);
+
 	let mut eth0 = NetworkDeviceService::new("eth0");
 	eth0.add(network::Config::DHCP);
 	manager.add_service(&mut rt, eth0, true);

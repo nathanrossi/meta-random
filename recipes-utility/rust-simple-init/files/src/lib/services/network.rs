@@ -7,6 +7,7 @@ use runtime::Runtime;
 
 pub enum Config
 {
+	LinkUp,
 	DHCP,
 	StaticIpv4(Ipv4Addr, u32, Option<Ipv4Addr>),
 	DHCPD(Ipv4Addr, Ipv4Addr),
@@ -56,6 +57,10 @@ impl ConfigState
 					}
 
 					match &self.config {
+						Config::LinkUp => {
+								// Only bring the link up
+								self.state = State::Ready;
+							}
 						Config::StaticIpv4(host, prefix, _) => {
 								let fmtaddr = format!("{}/{}", host, prefix);
 								if let Ok(child) = Command::new("/sbin/ip").args(&["addr", "add", &fmtaddr, "dev", &device]).spawn() {
