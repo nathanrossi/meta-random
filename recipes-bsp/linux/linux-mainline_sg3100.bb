@@ -88,8 +88,29 @@ python do_generate_config:append:sg3100 () {
 python do_generate_config:append:remotebox () {
     # usb-serial
     config("USB_SERIAL", "y")
+    config("USB_SERIAL_GENERIC", "y")
+    config("USB_SERIAL_ARK3116", "y")
+    config("USB_SERIAL_BELKIN", "y")
+    config("USB_SERIAL_CH341", "y")
     config("USB_SERIAL_CP210X", "y")
     config("USB_SERIAL_FTDI_SIO", "y")
+    config("USB_SERIAL_F81232", "y")
+    config("USB_SERIAL_IPW", "y")
+    config("USB_SERIAL_PL2303", "y")
+    config("USB_SERIAL_OTI6858", "y")
+    config("USB_SERIAL_QUALCOMM", "y")
+    config("USB_SERIAL_SPCP8X5", "y")
+    config("USB_SERIAL_SIERRAWIRELESS", "y")
+    config("USB_SERIAL_TI", "y")
+    config("USB_SERIAL_WWAN", "y")
+    config("USB_SERIAL_OPTION", "y")
+    config("USB_ACM", "y")
+
+    # usb-ethernet
+    config("USB_USBNET", "y")
+    config("USB_NET_CDCETHER", "y")
+    config("USB_NET_CDC_EEM", "y")
+    config("USB_NET_CDC_NCM", "y")
 
     # networking
     config("VETH", "y")
