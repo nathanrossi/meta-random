@@ -49,7 +49,7 @@ python do_generate_deployables:append:rpi() {
 
 do_generate_boot_tarball[depends] += "core-image-minimal:do_image_complete"
 python do_generate_boot_tarball() {
-    args = ["tar", "-czhf", d.expand("${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.boot.tar.gz")]
+    args = ["tar", "-czhf", d.expand("${IMGDEPLOYDIR}/${IMAGE_NAME}.boot.tar.gz")]
     import glob
     for i in d.getVar("IMAGE_BOOT_FILES").split():
         parts = i.split(";", 1)
@@ -64,13 +64,10 @@ python do_generate_boot_tarball() {
     subprocess.run(args, check = True, cwd = d.getVar("TMPDIR"), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     # symlink newest
-    target = d.expand("${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.boot.tar.gz")
-    symlink = d.expand("${DEPLOY_DIR_IMAGE}/${IMAGE_LINK_NAME}.boot.tar.gz")
-    if os.path.exists(target):
-        if os.path.islink(symlink):
-            os.remove(symlink)
-        os.symlink(target, symlink)
-    else:
-        bb.note("Skipping symlink, source does not exist: {} -> {}".format(symlink, target))
+    target = d.expand("${IMAGE_NAME}.boot.tar.gz")
+    symlink = d.expand("${IMGDEPLOYDIR}/${IMAGE_LINK_NAME}.boot.tar.gz")
+    if os.path.islink(symlink):
+        os.remove(symlink)
+    os.symlink(target, symlink)
 }
 addtask generate_boot_tarball before do_image_wic after do_generate_deployables
