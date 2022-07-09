@@ -47,6 +47,7 @@ python do_generate_deployables:append:rpi() {
         f.write("initramfs initramfs.gz followkernel\n")
 }
 
+do_generate_boot_tarball[depends] += "core-image-minimal:do_image_complete"
 python do_generate_boot_tarball() {
     args = ["tar", "-czhf", d.expand("${DEPLOY_DIR_IMAGE}/${IMAGE_NAME}.boot.tar.gz")]
     import glob
