@@ -114,7 +114,7 @@ pub fn main() -> std::result::Result<(), Box<dyn std::error::Error>>
 	manager.add_service(&mut rt, wlan0, true);
 
 	// services
-	manager.add_service(&mut rt, ProcessService::new("/usr/sbin/rngd", &["-r", "/dev/hwrng"]), true);
+	manager.add_service(&mut rt, ProcessService::new("/usr/sbin/rngd", &["-f", "-r", "/dev/hwrng"]), true);
 	manager.add_service(&mut rt, SSHService::default(), true);
 
 	// mjpeg streaming of camera

@@ -1,4 +1,6 @@
 use std::io;
+use std::path::Path;
+use nix::unistd::Pid;
 use super::sysfs::*;
 
 #[derive(Debug)]
@@ -67,6 +69,15 @@ pub fn mounted(point : &str, device : Option<&str>, fstype : Option<&str>) -> bo
 	return false;
 }
 
+pub fn process_comm(pid : Pid) -> Option<String>
+{
+	let path = Path::new("/proc").join(pid.to_string()).join("comm");
+	if path.exists() {
+		return read_line_file(path);
+	}
+	return None;
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -123,5 +134,11 @@ mod tests {
 		}
 
 		assert!(v.next().is_none());
+	}
+
+	#[test]
+	fn test_comm()
+	{
+		assert!(process_comm(Pid::from_raw(1)).is_some());
 	}
 }

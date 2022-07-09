@@ -3,7 +3,9 @@ use std::mem;
 use std::collections::HashMap;
 use std::os::unix::io::{RawFd, AsRawFd};
 use libc;
-use nix::sys::socket::{socket, bind, recvfrom, AddressFamily, SockType, SockAddr};
+use nix::sys::socket::{socket, bind, recvfrom, AddressFamily, SockType};
+use nix::sys::socket::SockaddrLike;
+use nix::sys::socket::NetlinkAddr;
 use nix::sys::socket::SockFlag;
 use nix::sys::socket::SockProtocol;
 
@@ -120,14 +122,14 @@ impl Socket
 			opts |= SockFlag::SOCK_NONBLOCK;
 		}
 		let fd = socket(AddressFamily::Netlink, SockType::Datagram, opts, SockProtocol::NetlinkKObjectUEvent)?;
-		bind(fd, &SockAddr::new_netlink(0, 1 | 2))?; // bind kernel + udev
+		bind(fd, &NetlinkAddr::new(0, 1 | 2))?; // bind kernel + udev
 		return Ok(Socket { fd : fd });
 	}
 
 	pub fn read(&self) -> nix::Result<Option<EventData>>
 	{
 		let mut buf = [0u8; 4096];
-		match recvfrom(self.fd, &mut buf) {
+		match recvfrom::<NetlinkAddr>(self.fd, &mut buf) {
 			Ok((size, addr)) => {
 					if size == 0 {
 						return Ok(None);
@@ -135,10 +137,8 @@ impl Socket
 
 					// check if udev source
 					let mut udev : bool = false;
-					if let Some(a) = addr {
-						if let SockAddr::Netlink(nladdr) = a {
-							udev = nladdr.groups() == 2;
-						}
+					if let Some(nladdr) = addr {
+						udev = nladdr.groups() == 2;
 					}
 
 					if let Some(data) = EventData::parse_message(&buf[0..size], udev) {
@@ -147,10 +147,8 @@ impl Socket
 					return Ok(None);
 				},
 			Err(e) => {
-					if let nix::Error::Sys(errno) = e {
-						if errno == nix::errno::Errno::EAGAIN {
-							return Ok(None);
-						}
+					if let nix::Error::EAGAIN = e {
+						return Ok(None);
 					}
 					return Err(e);
 				},

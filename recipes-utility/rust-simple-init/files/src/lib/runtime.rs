@@ -5,6 +5,7 @@ use nix::sys::signal::{Signal, SigSet, SigmaskHow};
 use nix::sys::signalfd::{SignalFd, SfdFlags};
 use service::{ServiceRef, ServiceManager, ServiceState};
 use logging::Logger;
+use procfs;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -182,48 +183,86 @@ impl<'a> Runtime<'a>
 
 	fn check_processes(&mut self, manager : &mut ServiceManager) -> Result<bool>
 	{
-		match nix::sys::wait::waitpid(None, Some(nix::sys::wait::WaitPidFlag::WNOHANG)) {
+		let flags =
+			nix::sys::wait::WaitPidFlag::WEXITED |
+			nix::sys::wait::WaitPidFlag::WNOHANG |
+			nix::sys::wait::WaitPidFlag::WNOWAIT;
+		match nix::sys::wait::waitid(nix::sys::wait::Id::All, flags) {
 			Err(e) => {
-					if let nix::Error::Sys(errno) = e {
-						if errno == nix::errno::Errno::ECHILD {
-							return Ok(false); // no children to wait for
-						}
-					}
-					return Err(Box::new(e));
+				if let nix::Error::ECHILD = e {
+					return Ok(false); // no children to wait for
+				} else {
+					self.logger.service_log("runtime", &format!("waitpid error ({})", e));
 				}
+				return Err(Box::new(e));
+			}
 			Ok(status) => {
-					match status {
-						nix::sys::wait::WaitStatus::StillAlive => {
-								return Ok(false);
-							}
-						nix::sys::wait::WaitStatus::Exited(pid, status) => {
-								let estatus = std::os::unix::process::ExitStatusExt::from_raw(status);
-								if manager.process_event(self, pid, estatus) {
-									return Ok(true);
-								}
-
-								// TODO: handle orphan
-								self.logger.service_log("runtime", &format!("reaped orphan (pid = {}, status = {})", pid, status));
-
-								return Ok(false);
-							}
-						nix::sys::wait::WaitStatus::Signaled(pid, signal, _) => {
-								let estatus = std::os::unix::process::ExitStatusExt::from_raw(0); // TODO: convert signal to exitstatus
-								if manager.process_event(self, pid, estatus) {
-									return Ok(true);
-								}
-
-								// TODO: handle orphan
-								self.logger.service_log("runtime", &format!("reaped orphan (pid = {}, signal = {})", pid, signal));
-
-								return Ok(false);
-							}
-						_ => {
-							self.logger.service_log("runtime", &format!("check_processes: ??? {:?}", status));
-							return Ok(false);
-						}
+				match status {
+					nix::sys::wait::WaitStatus::Exited(pid, _) => {
+						return self.handle_process(manager, pid);
+					}
+					nix::sys::wait::WaitStatus::Signaled(pid, _, _) => {
+						return self.handle_process(manager, pid);
+					}
+					_ => {
+						return Ok(false);
 					}
 				}
+			}
+		}
+	}
+
+	fn handle_process(&mut self, manager : &mut ServiceManager, pid : nix::unistd::Pid) -> Result<bool>
+	{
+		let flags = nix::sys::wait::WaitPidFlag::WEXITED | nix::sys::wait::WaitPidFlag::WNOHANG;
+		let comm = procfs::process_comm(pid).unwrap_or_default();
+
+		match nix::sys::wait::waitid(nix::sys::wait::Id::Pid(pid), flags) {
+			Err(e) => {
+				if let nix::Error::ECHILD = e {
+					return Ok(false); // no children to wait for
+				} else {
+					self.logger.service_log("runtime", &format!("waitpid error ({})", e));
+				}
+				return Err(Box::new(e));
+			},
+			Ok(status) => {
+				match status {
+					nix::sys::wait::WaitStatus::StillAlive => {
+						return Ok(false);
+					}
+					nix::sys::wait::WaitStatus::Exited(pid, status) => {
+						let estatus = std::os::unix::process::ExitStatusExt::from_raw(status);
+						// self.logger.service_log("runtime", &format!("exited process '{}' (pid = {}, status = {})", comm, pid, status));
+
+						if manager.process_event(self, pid, estatus) {
+							return Ok(true);
+						}
+
+						// TODO: handle orphan
+						self.logger.service_log("runtime", &format!("reaped orphan '{}' (pid = {}, status = {})", comm, pid, status));
+
+						return Ok(false);
+					}
+					nix::sys::wait::WaitStatus::Signaled(pid, signal, _) => {
+						let estatus = std::os::unix::process::ExitStatusExt::from_raw(0); // TODO: convert signal to exitstatus
+						// self.logger.service_log("runtime", &format!("signaled process '{}' (pid = {}, status = {})", comm, pid, signal));
+
+						if manager.process_event(self, pid, estatus) {
+							return Ok(true);
+						}
+
+						// TODO: handle orphan
+						self.logger.service_log("runtime", &format!("reaped orphan '{}' (pid = {}, signal = {})", comm, pid, signal));
+
+						return Ok(false);
+					}
+					_ => {
+						self.logger.service_log("runtime", &format!("check_processes: ??? {:?}", status));
+						return Ok(false);
+					}
+				}
+			}
 		}
 	}
 }

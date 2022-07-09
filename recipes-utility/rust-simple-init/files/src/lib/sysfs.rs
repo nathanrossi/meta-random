@@ -69,3 +69,13 @@ pub fn read_file<P: AsRef<std::path::Path>>(path : P) -> Option<String>
 	}
 	return None;
 }
+
+pub fn read_line_file<P: AsRef<std::path::Path>>(path : P) -> Option<String>
+{
+	if let Ok(content) = std::fs::read_to_string(path) {
+		if let Some(line) = content.lines().next() {
+			return Some(line.to_string());
+		}
+	}
+	return None;
+}

@@ -18,6 +18,7 @@ enum State
 {
 	None,
 	Ready,
+	Failed,
 	LinkSetup(Child),
 	LinkStaticIpv4(Child),
 	LinkDHCP(Child),
@@ -38,7 +39,7 @@ impl ConfigState
 		match &mut self.state {
 			State::None => {
 					if let Ok(child) = Command::new("/sbin/ip").args(&["link", "set", "dev", device, "up"]).spawn() {
-						runtime.logger.service_log(&format!("net:{}", device), "link bringup");
+						runtime.logger.service_log(&format!("net:{}", device), &format!("link bringup (pid = {})", child.id()));
 						self.state = State::LinkSetup(child);
 					}
 				}
@@ -59,13 +60,18 @@ impl ConfigState
 					match &self.config {
 						Config::LinkUp => {
 								// Only bring the link up
+								runtime.logger.service_log(&format!("net:{}", device), "link ready");
 								self.state = State::Ready;
 							}
 						Config::StaticIpv4(host, prefix, _) => {
 								let fmtaddr = format!("{}/{}", host, prefix);
+								runtime.logger.service_log(&format!("net:{}", device), &format!("link configure static ipv4 '{}'", &fmtaddr));
 								if let Ok(child) = Command::new("/sbin/ip").args(&["addr", "add", &fmtaddr, "dev", &device]).spawn() {
 									runtime.logger.service_log(&format!("net:{}", device), "link addr static setup");
 									self.state = State::LinkStaticIpv4(child);
+								} else {
+									runtime.logger.service_log(&format!("net:{}", device), "failed to configure static ipv4 address");
+									self.state = State::Failed;
 								}
 							}
 						Config::DHCP => {
@@ -74,6 +80,7 @@ impl ConfigState
 									self.state = State::LinkDHCP(child);
 								} else {
 									runtime.logger.service_log(&format!("net:{}", device), "failed to start udhcpc");
+									self.state = State::Failed;
 								}
 							}
 						Config::DHCPD(start, end) => {
@@ -88,11 +95,12 @@ impl ConfigState
 										"option subnet 255.255.255.252",
 										"option lease 3600",
 										].join("\n")) {
-									if let Ok(child) = Command::new("/usr/sbin/udhcpd").arg(configpath).spawn() {
+									if let Ok(child) = Command::new("/usr/sbin/udhcpd").arg("-f").arg(configpath).spawn() {
 										runtime.logger.service_log(&format!("net:{}", device), "link dhcpd");
 										self.state = State::LinkDHCPD(child);
 									} else {
 										runtime.logger.service_log(&format!("net:{}", device), "failed to start udhcpd");
+										self.state = State::Failed;
 									}
 								}
 							}
@@ -118,6 +126,7 @@ impl ConfigState
 									self.state = State::WPASupplicant(child);
 								} else {
 									runtime.logger.service_log(&format!("net:{}", device), "failed to start wpa supplicant");
+									self.state = State::Failed;
 								}
 							}
 					}
@@ -129,6 +138,7 @@ impl ConfigState
 						return false;
 					}
 
+					runtime.logger.service_log(&format!("net:{}", device), "link ready");
 					self.state = State::Ready;
 					return true;
 				}

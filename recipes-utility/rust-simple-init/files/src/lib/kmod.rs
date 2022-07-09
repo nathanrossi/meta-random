@@ -145,11 +145,12 @@ impl AliasMap
 	pub fn from_system() -> Self
 	{
 		// get /lib/modules/(uname -r)/modules.alias
-		let uname = nix::sys::utsname::uname();
-		let path : std::path::PathBuf = ["/lib", "modules", uname.release(), "modules.alias"].iter().collect();
-		if path.exists() {
-			if let Ok(map) = Self::from_path(path) {
-				return map;
+		if let Ok(uname) = nix::sys::utsname::uname() {
+			let path = std::path::Path::new("/lib/modules").join(uname.release()).join("modules.alias");
+			if path.exists() {
+				if let Ok(map) = Self::from_path(path) {
+					return map;
+				}
 			}
 		}
 		return AliasMap { entries : Vec::new() };
