@@ -10,6 +10,7 @@ DEPENDS += "elfutils-native"
 
 # disable kernel-base depending on image, other mechanisms are used to ship the kernel
 RDEPENDS:${KERNEL_PACKAGE_NAME}-base = ""
+RRECOMMENDS:${KERNEL_PACKAGE_NAME}-base = ""
 
 DEFAULT_PREFERENCE = "-1"
 COMPATIBLE_MACHINE = "^$"
