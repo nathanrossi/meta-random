@@ -15,10 +15,10 @@ COMPATIBLE_MACHINE = "^$"
 S = "${WORKDIR}/git"
 
 BRANCH = "master"
-SRCREV = "5da66099d6e28c66d24c49d9e791f64318c136a9"
-PV = "5.18-rc5+git${SRCPV}"
+SRCREV = "93f875a8526a291005e7f38478079526c843cbec"
+PV = "6.1.8+git${SRCPV}"
 # SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;protocol=https;branch=${BRANCH}"
-SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/netdev/net-next.git;protocol=https;branch=${BRANCH}"
+SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git;protocol=https;nobranch=1"
 
 python do_generate_config() {
     def config(name, val):
