@@ -1,4 +1,4 @@
-require recipes-bsp/opensbi/opensbi_1.1.bb
+require recipes-bsp/opensbi/opensbi_1.2.bb
 
 SRC_URI = "git://github.com/smaeul/opensbi;protocol=https;branch=bl808"
 SRCREV = "1767f7f5473b608cf8cfc66c5799a8f61c72c16d"
