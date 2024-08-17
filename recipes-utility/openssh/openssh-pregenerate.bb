@@ -6,7 +6,7 @@ do_configure() {
 	:
 }
 
-KEYS = "rsa dsa ecdsa ed25519"
+KEYS = "rsa ecdsa ed25519"
 
 do_compile[dirs] += "${B}"
 do_compile() {
