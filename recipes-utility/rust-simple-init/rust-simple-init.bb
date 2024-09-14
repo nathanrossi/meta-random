@@ -1,11 +1,9 @@
-SUMMARY = "Simple Rust Process Init System"
+SUMMARY = "Rust Simple Process Init System"
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
-SRC_URI = " \
-    file://src \
-    file://Cargo.toml \
-    "
+SRC_URI = "git://github.com/nathanrossi/rust-simple-init;protocol=https;branch=master"
+SRCREV = "96a1326e5199dcc71dc262798b3746625fa2d50c"
 
 # crate dependencies
 SRC_URI += " \
@@ -95,9 +93,11 @@ UNPACKDIR = "${S}"
 inherit rust
 inherit cargo
 
+CARGO_BUILD_FLAGS += "--examples"
+
 do_install:append() {
     install -d ${D}${base_sbindir} ${D}${bindir}
-    install -m 0744 ${B}/target/${CARGO_TARGET_SUBDIR}/rust-simple-init ${D}${base_sbindir}/init
+    install -m 0744 ${B}/target/${CARGO_TARGET_SUBDIR}/examples/demo ${D}${base_sbindir}/init
 }
 
 FILES:${PN} += "${base_sbindir}/*"
