@@ -3,7 +3,7 @@ LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 SRC_URI = "git://github.com/nathanrossi/rust-simple-init;protocol=https;branch=master"
-SRCREV = "96a1326e5199dcc71dc262798b3746625fa2d50c"
+SRCREV = "f1583c054c5705e8e93a16287d2f15e3fdef9393"
 
 # crate dependencies
 SRC_URI += " \
@@ -97,7 +97,8 @@ CARGO_BUILD_FLAGS += "--examples"
 
 do_install:append() {
     install -d ${D}${base_sbindir} ${D}${bindir}
-    install -m 0744 ${B}/target/${CARGO_TARGET_SUBDIR}/examples/demo ${D}${base_sbindir}/init
+    # install -m 0744 ${B}/target/${CARGO_TARGET_SUBDIR}/examples/demo ${D}${base_sbindir}/init
+    install -m 0744 ${B}/target/${CARGO_TARGET_SUBDIR}/examples/bootloader ${D}${base_sbindir}/init
 }
 
 FILES:${PN} += "${base_sbindir}/*"
