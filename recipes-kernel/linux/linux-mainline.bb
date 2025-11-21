@@ -4,6 +4,9 @@ LICENSE = "GPL-2.0-only"
 LIC_FILES_CHKSUM = "file://COPYING;md5=6bc538ed5bd9a7fc9398086aedcd7e46"
 
 inherit kernel
+require linux-mainline.inc
+
+S = "${UNPACKDIR}/${BP}"
 
 # for ORC
 DEPENDS += "elfutils-native"
@@ -15,11 +18,9 @@ RRECOMMENDS:${KERNEL_PACKAGE_NAME}-base = ""
 DEFAULT_PREFERENCE = "-1"
 COMPATIBLE_MACHINE = "^$"
 
-S = "${WORKDIR}/git"
-
 BRANCH = "master"
-SRCREV = "dd5a440a31fae6e459c0d6271dddd62825505361"
-PV = "6.9-rc7+git${SRCPV}"
+SRCREV = "6fab32bb6508abbb8b7b1c5498e44f0c32320ed5"
+PV = "6.18-rc2+git"
 SRC_URI = "git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git;protocol=https;branch=${BRANCH}"
 
 # Build all kernel device trees with overlay/symbol support
@@ -82,7 +83,6 @@ python do_generate_config:append() {
     # config("IP_NF_ARPFILTER", "m")
     # config("IP_NF_ARP_MANGLE", "m")
 }
-addtask generate_config before do_configure after do_unpack
 
 #KBUILD_DEFCONFIG:arm = "multi_v7_defconfig"
 
